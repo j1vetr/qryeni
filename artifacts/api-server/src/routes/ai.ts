@@ -2,36 +2,9 @@ import { Router } from "express";
 import { requireAuth } from "../lib/auth";
 import { db } from "../lib/db";
 import { settingsTable, aiGenerationLogsTable } from "@workspace/db/schema";
-import { objectStorageClient } from "../lib/objectStorage";
-import { setObjectAclPolicy } from "../lib/objectAcl";
 import { randomUUID } from "crypto";
 
 const router = Router();
-
-function parseGcsPath(path: string): { bucketName: string; objectName: string } {
-  const normalized = path.startsWith("/") ? path : `/${path}`;
-  const parts = normalized.split("/").filter(Boolean);
-  return { bucketName: parts[0], objectName: parts.slice(1).join("/") };
-}
-
-async function uploadImageBufferToStorage(buffer: Buffer, ext: "jpg" | "png" = "jpg"): Promise<string> {
-  const privateDir = process.env.PRIVATE_OBJECT_DIR;
-  if (!privateDir) throw new Error("Object storage yapılandırılmamış");
-
-  const uuid = randomUUID();
-  const basePath = privateDir.replace(/\/$/, "");
-  const fullPath = `${basePath}/ai-images/${uuid}.${ext}`;
-  const contentType = ext === "jpg" ? "image/jpeg" : "image/png";
-
-  const { bucketName, objectName } = parseGcsPath(fullPath);
-  const bucket = objectStorageClient.bucket(bucketName);
-  const file = bucket.file(objectName);
-
-  await file.save(buffer, { contentType, resumable: false });
-  await setObjectAclPolicy(file, { owner: "system", visibility: "public" });
-
-  return `/api/storage/objects/ai-images/${uuid}.${ext}`;
-}
 
 const PRODUCT_PROMPTS: { keywords: string[]; style: string }[] = [
   {
@@ -60,20 +33,20 @@ const PRODUCT_PROMPTS: { keywords: string[]; style: string }[] = [
   },
 ];
 
-const BACKGROUND_TEXTURES = [
-  "dark slate stone surface",
-  "aged oak wooden board",
-  "brushed concrete countertop",
-  "black marble with subtle veining",
-  "charcoal linen tablecloth",
-];
-
 const VARIATIONS = [
   "natural window light from the left",
   "soft diffused natural light from above",
   "warm golden hour side lighting",
   "cool studio lighting with subtle rim light",
   "candlelit warm atmospheric light",
+];
+
+const BACKGROUNDS = [
+  "dark slate stone surface",
+  "aged oak wooden board",
+  "brushed concrete countertop",
+  "black marble with subtle veining",
+  "charcoal linen tablecloth",
 ];
 
 function buildImagePrompt(productName: string, category?: string, notes?: string): string {
@@ -83,10 +56,16 @@ function buildImagePrompt(productName: string, category?: string, notes?: string
     if (keywords.some((kw) => combined.includes(kw))) { style = s; break; }
   }
   const variation = VARIATIONS[Math.floor(Math.random() * VARIATIONS.length)];
-  const texture = BACKGROUND_TEXTURES[Math.floor(Math.random() * BACKGROUND_TEXTURES.length)];
-  return `Professional food photography of "${productName}", ${style}, ${variation}, ${texture}, ultra realistic, 8K quality, Turkish cuisine aesthetics, no text, no watermark, food only`;
+  const bg = BACKGROUNDS[Math.floor(Math.random() * BACKGROUNDS.length)];
+  return `Professional food photography of "${productName}", ${style}, ${variation}, ${bg}, ultra realistic, 8K quality, Turkish cuisine aesthetics, no text, no watermark, food only`;
 }
 
+/**
+ * POST /ai/generate-image
+ * Returns { b64: string, prompt: string } — raw JPEG base64 from OpenAI.
+ * The client is responsible for canvas-based compression and upload so that
+ * the same optimization pipeline is applied for both manual and AI images.
+ */
 router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> => {
   const { productName, productId, category, notes } = req.body as {
     productName?: string;
@@ -114,7 +93,7 @@ router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> =
         n: 1,
         size: "1024x1024",
         output_format: "jpeg",
-        output_compression: 82,
+        output_compression: 90,
       }),
       signal: AbortSignal.timeout(120_000),
     });
@@ -133,15 +112,14 @@ router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> =
     const b64 = data.data?.[0]?.b64_json;
     if (!b64) { res.status(502).json({ error: "OpenAI görsel verisi boş döndü" }); return; }
 
-    const buffer = Buffer.from(b64, "base64");
-    const servingUrl = await uploadImageBufferToStorage(buffer, "jpg");
     success = true;
+    const uuid = randomUUID();
 
     await db.insert(aiGenerationLogsTable).values({
       productId: productId ?? null, productName, model: "gpt-image-1", success: true,
     });
 
-    res.json({ imageUrl: servingUrl, prompt });
+    res.json({ b64, prompt, uuid });
   } catch (err) {
     if (!success) {
       await db.insert(aiGenerationLogsTable).values({
@@ -186,7 +164,7 @@ Rules:
 - allergens: array using ONLY these exact Turkish lowercase names when applicable: gluten, süt, yumurta, balık, kabuklu, fındık, yer fıstığı, soya, kereviz, hardal, susam
 - nutritionFacts: per serving — energy in kcal, protein/carbs/fat in grams (realistic for a restaurant portion)
 - calories: total kcal (same as nutritionFacts.energy)
-- translations[lang].name: dish name in that language, concise and appealing (do NOT include brand names)
+- translations[lang].name: dish name in that language, concise and appealing
 - translations[lang].description: sensory and appetizing description, max 60 words, start with uppercase
 - translations[lang].ingredients: comma-separated list of main ingredients in that language
 - translations[lang].allergenNote: allergen warning sentence in that language (empty string if no allergens)
