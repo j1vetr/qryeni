@@ -7,7 +7,7 @@ import { randomUUID } from "crypto";
 const router = Router();
 
 /* ─── Image style definitions ──────────────────────────────────── */
-type ImageStyle = "restaurant" | "professional" | "rustic" | "minimal";
+type ImageStyle = "restaurant" | "professional" | "rustic" | "minimal" | "outdoor";
 
 interface StyleDef {
   surface: string;
@@ -40,6 +40,12 @@ const STYLE_DEFS: Record<ImageStyle, StyleDef> = {
     light: "soft even studio lighting from above, no harsh shadows, quiet and calm",
     mood: "zen simplicity, all focus on the food itself, modern minimalist aesthetic",
     angle: "centered overhead flat lay or straight-on",
+  },
+  outdoor: {
+    surface: "outdoor garden or terrace table, natural stone or weathered wood, lush greenery softly blurred in background",
+    light: "bright natural daylight, dappled sunlight through leaves, fresh open-air feel",
+    mood: "al fresco dining in nature, relaxed and vibrant, Mediterranean or garden restaurant atmosphere",
+    angle: "natural relaxed angle as if placed on a terrace table",
   },
 };
 
@@ -91,7 +97,7 @@ router.post("/ai/generate-image", requireAuth, async (req, res): Promise<void> =
 
   if (!productName) { res.status(400).json({ error: "Ürün adı gerekli" }); return; }
 
-  const validStyles: ImageStyle[] = ["restaurant", "professional", "rustic", "minimal"];
+  const validStyles: ImageStyle[] = ["restaurant", "professional", "rustic", "minimal", "outdoor"];
   const resolvedStyle: ImageStyle = validStyles.includes(style as ImageStyle) ? (style as ImageStyle) : "restaurant";
 
   const [settings] = await db.select().from(settingsTable).limit(1);

@@ -346,7 +346,7 @@ function ProductModal({
   const [aiLoading,      setAiLoading]      = useState(false);
   const [aiImageLoading, setAiImageLoading] = useState(false);
   const [aiFlash,        setAiFlash]        = useState(false);
-  const [imgStyle,       setImgStyle]       = useState<"restaurant"|"professional"|"rustic"|"minimal">("restaurant");
+  const [imgStyle,       setImgStyle]       = useState<"restaurant"|"professional"|"rustic"|"minimal"|"outdoor">("restaurant");
 
   /* ── Derived ── */
   const trName   = translations.find((t) => t.languageCode === "tr")?.name ?? "";
@@ -591,6 +591,7 @@ function ProductModal({
                   { key: "professional", label: "📸 Profesyonel", desc: "Koyu fon, dramatik ışık" },
                   { key: "rustic",       label: "🌿 Rustik",      desc: "Ahşap, güneş ışığı" },
                   { key: "minimal",      label: "◾ Minimalist",   desc: "Sade, temiz kompozisyon" },
+                  { key: "outdoor",      label: "🌳 Doğa",        desc: "Bahçe, teras, açık hava" },
                 ] as const).map(({ key, label, desc }) => (
                   <button
                     key={key}
