@@ -9,7 +9,14 @@ import AdminCategories from "@/pages/admin/categories";
 import AdminProducts from "@/pages/admin/products";
 import AdminSettings from "@/pages/admin/settings";
 import AdminLogin from "@/pages/admin/login";
-import MenuPage from "@/pages/menu/menu-page";
+import { MenuProvider } from "@/contexts/menu-context";
+import HomePage from "@/pages/menu/home-page";
+import CategoriesPage from "@/pages/menu/categories-page";
+import CategoryDetailPage from "@/pages/menu/category-detail-page";
+import ProductDetailPage from "@/pages/menu/product-detail-page";
+import LanguagePage from "@/pages/menu/language-page";
+import AboutPage from "@/pages/menu/about-page";
+import InfoPage from "@/pages/menu/info-page";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,45 +30,51 @@ const queryClient = new QueryClient({
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={MenuPage} />
-      <Route path="/menu/:slug" component={MenuPage} />
+        <Route path="/admin/login" component={AdminLogin} />
 
-      <Route path="/admin/login" component={AdminLogin} />
+        <Route path="/admin/categories">
+          {() => (
+            <AdminLayout>
+              <AdminCategories />
+            </AdminLayout>
+          )}
+        </Route>
 
-      <Route path="/admin/categories">
-        {() => (
-          <AdminLayout>
-            <AdminCategories />
-          </AdminLayout>
-        )}
-      </Route>
+        <Route path="/admin/products">
+          {() => (
+            <AdminLayout>
+              <AdminProducts />
+            </AdminLayout>
+          )}
+        </Route>
 
-      <Route path="/admin/products">
-        {() => (
-          <AdminLayout>
-            <AdminProducts />
-          </AdminLayout>
-        )}
-      </Route>
+        <Route path="/admin/settings">
+          {() => (
+            <AdminLayout>
+              <AdminSettings />
+            </AdminLayout>
+          )}
+        </Route>
 
-      <Route path="/admin/settings">
-        {() => (
-          <AdminLayout>
-            <AdminSettings />
-          </AdminLayout>
-        )}
-      </Route>
+        <Route path="/admin">
+          {() => (
+            <AdminLayout>
+              <AdminDashboard />
+            </AdminLayout>
+          )}
+        </Route>
 
-      <Route path="/admin">
-        {() => (
-          <AdminLayout>
-            <AdminDashboard />
-          </AdminLayout>
-        )}
-      </Route>
+        {/* Menu routes — flat, no nesting to avoid wouter v3 splat issues */}
+        <Route path="/categories/:categorySlug/:productSlug" component={ProductDetailPage} />
+        <Route path="/categories/:categorySlug" component={CategoryDetailPage} />
+        <Route path="/categories" component={CategoriesPage} />
+        <Route path="/language" component={LanguagePage} />
+        <Route path="/about" component={AboutPage} />
+        <Route path="/info" component={InfoPage} />
+        <Route path="/" component={HomePage} />
 
-      <Route component={NotFound} />
-    </Switch>
+        <Route component={NotFound} />
+      </Switch>
   );
 }
 
@@ -69,9 +82,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
+        <MenuProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <Router />
+          </WouterRouter>
+        </MenuProvider>
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>

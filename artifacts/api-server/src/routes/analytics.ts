@@ -11,6 +11,25 @@ import { eq, count, gte, and, sql } from "drizzle-orm";
 
 const router = Router();
 
+router.get("/analytics/product-views/public", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      productId: analyticsEventsTable.productId,
+      count: count(),
+    })
+    .from(analyticsEventsTable)
+    .where(eq(analyticsEventsTable.type, "product_view"))
+    .groupBy(analyticsEventsTable.productId);
+
+  const result: Record<number, number> = {};
+  for (const row of rows) {
+    if (row.productId != null) {
+      result[row.productId] = row.count;
+    }
+  }
+  res.json(result);
+});
+
 router.get("/analytics/dashboard", requireAuth, async (_req, res): Promise<void> => {
   const [menuViews] = await db
     .select({ count: count() })

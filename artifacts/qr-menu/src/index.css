@@ -418,3 +418,9 @@
     inset: -1px;
   }
 }
+
+/* Luna customer menu — guaranteed dark shell */
+.luna-menu {
+  background-color: #0A0A0A;
+  --accent: var(--luna-accent);
+}

@@ -19,6 +19,13 @@ router.get("/settings/public", async (_req, res): Promise<void> => {
     restaurantName: settings.restaurantName,
     primaryColor: settings.primaryColor ?? "#C9A84C",
     logoUrl: settings.logoUrl ?? null,
+    heroImageUrl: settings.heroImageUrl ?? null,
+    openingHours: settings.openingHours ?? null,
+    instagram: settings.instagram ?? null,
+    tagline: settings.tagline ?? null,
+    qualityNote: settings.qualityNote ?? null,
+    address: settings.address ?? null,
+    description: settings.description ?? null,
   });
 });
 

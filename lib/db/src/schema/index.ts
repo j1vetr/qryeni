@@ -34,6 +34,13 @@ export const settingsTable = pgTable("settings", {
   currency: varchar("currency", { length: 8 }).default("TRY"),
   defaultLanguage: varchar("default_language", { length: 8 }).default("tr"),
   openAiKey: text("openai_key"),
+  heroImageUrl: text("hero_image_url"),
+  openingHours: text("opening_hours"),
+  instagram: text("instagram"),
+  tagline: text("tagline"),
+  qualityNote: text("quality_note"),
+  address: text("address"),
+  description: text("description"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
