@@ -86,16 +86,16 @@ export default function ProductDetailPage() {
       <MenuHeader showBack />
 
       {/* Hero Image */}
-      <div className="w-full" style={{ height: "52vw", maxHeight: "280px", minHeight: "180px" }}>
-        {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
-        ) : (
-          <div
-            className="w-full h-full"
-            style={{ background: `linear-gradient(180deg, ${accent}22 0%, #0A0A0A 100%)` }}
-          />
-        )}
-      </div>
+      {product.imageUrl ? (
+        <div className="w-full bg-[#0A0A0A]">
+          <img src={product.imageUrl} alt={product.name} className="w-full h-auto block" />
+        </div>
+      ) : (
+        <div
+          className="w-full"
+          style={{ height: "52vw", maxHeight: "280px", minHeight: "180px", background: `linear-gradient(180deg, ${accent}22 0%, #0A0A0A 100%)` }}
+        />
+      )}
 
       <div className="max-w-xl mx-auto px-4 pt-4 space-y-5">
         {/* Chef badge */}

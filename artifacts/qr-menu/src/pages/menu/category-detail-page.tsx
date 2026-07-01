@@ -118,9 +118,9 @@ export default function CategoryDetailPage() {
                 onClick={() => navigate(`/categories/${categorySlug}/${product.slug}`)}
                 className="w-full flex gap-3 bg-[#141414] rounded-2xl overflow-hidden border border-white/5 hover:bg-[#1a1a1a] transition-colors text-left"
               >
-                <div className="w-24 h-full flex-shrink-0 bg-[#1C1C1C] self-stretch min-h-[96px]">
+                <div className="w-24 h-full flex-shrink-0 bg-[#1C1C1C] self-stretch min-h-[96px] flex items-center justify-center">
                   {product.imageUrl ? (
-                    <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                    <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain" />
                   ) : (
                     <div
                       className="w-full h-full flex items-center justify-center text-3xl"

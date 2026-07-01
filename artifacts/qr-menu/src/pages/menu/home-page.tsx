@@ -273,9 +273,9 @@ function ProductCard({
           {chefsSpecialLabel}
         </div>
       )}
-      <div className="w-full aspect-[4/3] bg-[#1C1C1C] overflow-hidden">
+      <div className="w-full aspect-[4/3] bg-[#1C1C1C] overflow-hidden flex items-center justify-center">
         {product.imageUrl ? (
-          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+          <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain" />
         ) : (
           <div
             className="w-full h-full flex items-center justify-center text-3xl"

@@ -127,11 +127,11 @@ function ProductDetailModal({
     >
       <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
         {product.imageUrl && (
-          <div className="relative">
+          <div className="relative bg-neutral-100 rounded-t-3xl sm:rounded-t-2xl overflow-hidden">
             <img
               src={product.imageUrl}
               alt={product.name}
-              className="w-full h-52 object-cover rounded-t-3xl sm:rounded-t-2xl"
+              className="w-full h-auto block"
             />
             <button
               onClick={onClose}
@@ -307,7 +307,7 @@ function ProductCard({
             <img
               src={product.imageUrl}
               alt={product.name}
-              className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
+              className="w-16 h-16 rounded-xl object-contain bg-neutral-100 flex-shrink-0"
             />
           )}
           <div className="flex-1 min-w-0">
