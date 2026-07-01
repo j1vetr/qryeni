@@ -90,11 +90,16 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
                 .then((r) => r[0])
             : null;
 
+          const activeTr = tr ?? fallbackTr;
+
           return {
             id: p.id,
             slug: p.slug,
-            name: tr?.name ?? fallbackTr?.name ?? p.slug,
-            description: tr?.description ?? fallbackTr?.description ?? null,
+            name: activeTr?.name ?? p.slug,
+            description: activeTr?.description ?? null,
+            ingredients: activeTr?.ingredients ?? null,
+            allergenNote: activeTr?.allergenNote ?? null,
+            specialNote: activeTr?.specialNote ?? null,
             price: p.price,
             currency: p.currency ?? settings.currency ?? "TRY",
             imageUrl: p.imageUrl,

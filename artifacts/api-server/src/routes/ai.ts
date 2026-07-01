@@ -28,21 +28,30 @@ router.post("/ai/generate", requireAuth, async (req, res): Promise<void> => {
     ar: "Arabic",
   };
 
-  const prompt = `You are a professional restaurant menu copywriter.
-Generate a concise, appetizing menu description for the following item:
+  const prompt = `You are a professional restaurant menu copywriter and nutritionist.
+Generate complete menu content for the following dish:
 Product: "${productName}"${category ? `\nCategory: "${category}"` : ""}
 
-Respond ONLY with a valid JSON object like:
+Respond ONLY with a valid JSON object matching this exact shape:
 {
+  "allergens": ["string"],
+  "nutritionFacts": { "energy": number, "protein": number, "carbs": number, "fat": number },
+  "calories": number,
   "translations": {
-    ${targetLangs.map((l) => `"${l}": { "name": "...", "description": "..." }`).join(",\n    ")}
+    ${targetLangs.map((l) => `"${l}": { "name": "...", "description": "...", "ingredients": "...", "allergenNote": "...", "specialNote": "..." }`).join(",\n    ")}
   }
 }
 
 Rules:
-- Keep descriptions under 80 words
-- Be sensory and appealing
-- Use natural language for each target language: ${targetLangs.map((l) => langNames[l] || l).join(", ")}`;
+- allergens: array of common allergen names present (e.g. ["gluten", "milk", "eggs"])
+- nutritionFacts: per serving — energy in kcal, protein/carbs/fat in grams
+- calories: total kcal (same as nutritionFacts.energy)
+- translations[lang].name: dish name in that language, concise and appealing
+- translations[lang].description: sensory description under 60 words
+- translations[lang].ingredients: comma-separated list of main ingredients in that language
+- translations[lang].allergenNote: allergen warning sentence in that language (empty string if none)
+- translations[lang].specialNote: chef recommendation or serving suggestion in that language (can be empty string)
+- Languages to generate: ${targetLangs.map((l) => `${l} (${langNames[l] ?? l})`).join(", ")}`;
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {

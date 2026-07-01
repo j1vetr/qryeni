@@ -100,7 +100,7 @@ export const productsTable = pgTable(
     calories: integer("calories"),
     allergens: jsonb("allergens").$type<string[]>().default([]),
     nutritionFacts: jsonb("nutrition_facts")
-      .$type<Record<string, number>>()
+      .$type<{ energy?: number; protein?: number; carbs?: number; fat?: number }>()
       .default({}),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
@@ -117,6 +117,9 @@ export const productTranslationsTable = pgTable(
     languageCode: varchar("language_code", { length: 8 }).notNull(),
     name: text("name").notNull(),
     description: text("description"),
+    ingredients: text("ingredients"),
+    allergenNote: text("allergen_note"),
+    specialNote: text("special_note"),
   },
   (t) => [unique().on(t.productId, t.languageCode)]
 );

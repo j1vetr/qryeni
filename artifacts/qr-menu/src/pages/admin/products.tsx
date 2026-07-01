@@ -22,6 +22,16 @@ interface Translation {
   languageCode: string;
   name: string;
   description?: string;
+  ingredients?: string;
+  allergenNote?: string;
+  specialNote?: string;
+}
+
+interface NutritionFacts {
+  energy?: number;
+  protein?: number;
+  carbs?: number;
+  fat?: number;
 }
 
 interface Product {
@@ -35,6 +45,7 @@ interface Product {
   sortOrder: number;
   calories?: number;
   allergens?: string[];
+  nutritionFacts?: NutritionFacts;
   translations: Translation[];
 }
 
@@ -117,20 +128,29 @@ function ProductModal({
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? "");
   const [calories, setCalories] = useState(String(product?.calories ?? ""));
   const [allergens, setAllergens] = useState((product?.allergens ?? []).join(", "));
+  const [nutrition, setNutrition] = useState<NutritionFacts>(product?.nutritionFacts ?? {});
   const [translations, setTranslations] = useState<Translation[]>(
     languages.map((l) => ({
       languageCode: l.code,
       name: product?.translations?.find((t) => t.languageCode === l.code)?.name ?? "",
       description: product?.translations?.find((t) => t.languageCode === l.code)?.description ?? "",
+      ingredients: product?.translations?.find((t) => t.languageCode === l.code)?.ingredients ?? "",
+      allergenNote: product?.translations?.find((t) => t.languageCode === l.code)?.allergenNote ?? "",
+      specialNote: product?.translations?.find((t) => t.languageCode === l.code)?.specialNote ?? "",
     }))
   );
   const [saving, setSaving] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
-  function updateTr(code: string, field: "name" | "description", value: string) {
+  function updateTr(code: string, field: keyof Omit<Translation, "languageCode">, value: string) {
     setTranslations((prev) =>
       prev.map((t) => (t.languageCode === code ? { ...t, [field]: value } : t))
     );
+  }
+
+  function setNutrField(field: keyof NutritionFacts, value: string) {
+    const num = parseFloat(value);
+    setNutrition((prev) => ({ ...prev, [field]: isNaN(num) ? undefined : num }));
   }
 
   async function handleAiGenerate() {
@@ -140,15 +160,37 @@ function ProductModal({
     try {
       const cat = categories.find((c) => c.id === categoryId);
       const catName = cat?.translations.find((t) => t.languageCode === "tr")?.name ?? undefined;
-      const result = await apiFetch<{ translations: Record<string, { name: string; description: string }> }>("/ai/generate", {
+      const result = await apiFetch<{
+        allergens?: string[];
+        calories?: number;
+        nutritionFacts?: NutritionFacts;
+        translations: Record<string, { name: string; description: string; ingredients: string; allergenNote: string; specialNote: string }>;
+      }>("/ai/generate", {
         method: "POST",
         body: JSON.stringify({ productName: trName, category: catName, languages: languages.map((l) => l.code) }),
       });
+
+      if (result.allergens?.length) {
+        setAllergens(result.allergens.join(", "));
+      }
+      if (result.calories) {
+        setCalories(String(result.calories));
+      }
+      if (result.nutritionFacts) {
+        setNutrition(result.nutritionFacts);
+      }
       setTranslations((prev) =>
         prev.map((t) => {
           const gen = result.translations?.[t.languageCode];
           if (!gen) return t;
-          return { ...t, name: gen.name || t.name, description: gen.description || t.description };
+          return {
+            ...t,
+            name: gen.name || t.name,
+            description: gen.description || t.description,
+            ingredients: gen.ingredients || t.ingredients,
+            allergenNote: gen.allergenNote || t.allergenNote,
+            specialNote: gen.specialNote || t.specialNote,
+          };
         })
       );
       toast({ title: "AI içerik üretildi" });
@@ -163,6 +205,7 @@ function ProductModal({
     if (!slug) { toast({ title: "Slug zorunlu", variant: "destructive" }); return; }
     setSaving(true);
     try {
+      const nutriFilled = Object.values(nutrition).some((v) => v != null && !isNaN(v as number));
       const payload = {
         slug,
         categoryId: Number(categoryId),
@@ -171,6 +214,7 @@ function ProductModal({
         imageUrl: imageUrl || undefined,
         calories: calories ? parseInt(calories) : undefined,
         allergens: allergens ? allergens.split(",").map((s) => s.trim()).filter(Boolean) : [],
+        nutritionFacts: nutriFilled ? nutrition : {},
         translations: translations.filter((t) => t.name),
       };
       if (product?.id) {
@@ -188,6 +232,7 @@ function ProductModal({
   }
 
   const inputCls = "w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white";
+  const numInputCls = `${inputCls} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`;
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
@@ -197,6 +242,7 @@ function ProductModal({
           <button onClick={onClose}><X className="w-5 h-5 text-neutral-400" /></button>
         </div>
         <div className="px-6 py-5 space-y-5">
+          {/* Basic fields */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Slug</label>
@@ -213,24 +259,51 @@ function ProductModal({
               </select>
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Fiyat</label>
-              <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className={inputCls} />
+              <input type="number" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0" className={numInputCls} />
             </div>
             <div>
-              <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Kalori</label>
-              <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} placeholder="—" className={inputCls} />
+              <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Kalori (kcal)</label>
+              <input type="number" value={calories} onChange={(e) => setCalories(e.target.value)} placeholder="—" className={numInputCls} />
             </div>
           </div>
+
           <div>
             <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Görsel URL</label>
             <input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." className={inputCls} />
           </div>
+
           <div>
             <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-2">Alerjenler (virgülle ayırın)</label>
             <input value={allergens} onChange={(e) => setAllergens(e.target.value)} placeholder="gluten, süt, yumurta" className={inputCls} />
           </div>
+
+          {/* Nutrition facts */}
+          <div>
+            <label className="block text-xs text-neutral-400 uppercase tracking-widest mb-3">Besin Değerleri (porsiyon başına)</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Enerji (kcal)</label>
+                <input type="number" value={nutrition.energy ?? ""} onChange={(e) => setNutrField("energy", e.target.value)} placeholder="—" className={numInputCls} />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Protein (g)</label>
+                <input type="number" value={nutrition.protein ?? ""} onChange={(e) => setNutrField("protein", e.target.value)} placeholder="—" className={numInputCls} />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Karbonhidrat (g)</label>
+                <input type="number" value={nutrition.carbs ?? ""} onChange={(e) => setNutrField("carbs", e.target.value)} placeholder="—" className={numInputCls} />
+              </div>
+              <div>
+                <label className="block text-xs text-neutral-500 mb-1">Yağ (g)</label>
+                <input type="number" value={nutrition.fat ?? ""} onChange={(e) => setNutrField("fat", e.target.value)} placeholder="—" className={numInputCls} />
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-3">
             <label className="text-sm text-neutral-300">Aktif</label>
             <button
@@ -240,23 +313,25 @@ function ProductModal({
               <span className={`absolute top-0.5 w-4 h-4 bg-neutral-900 rounded-full transition-transform ${isActive ? "translate-x-5" : "translate-x-0.5"}`} />
             </button>
           </div>
+
+          {/* Translations */}
           <div>
             <div className="flex items-center justify-between mb-3">
-              <label className="text-xs text-neutral-400 uppercase tracking-widest">Çeviriler</label>
+              <label className="text-xs text-neutral-400 uppercase tracking-widest">Çeviriler & İçerik</label>
               <button
                 onClick={handleAiGenerate}
                 disabled={aiLoading}
                 className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-300 rounded-full hover:text-white hover:border-white transition-colors disabled:opacity-50"
               >
                 <Sparkles className="w-3 h-3" />
-                {aiLoading ? "Üretiliyor..." : "AI ile Üret"}
+                {aiLoading ? "Üretiliyor..." : "AI ile Doldur"}
               </button>
             </div>
-            <div className="space-y-4">
+            <div className="space-y-5">
               {languages.map((lang) => {
                 const tr = translations.find((t) => t.languageCode === lang.code)!;
                 return (
-                  <div key={lang.code} className="space-y-2">
+                  <div key={lang.code} className="space-y-2 pb-5 border-b border-neutral-800 last:border-0 last:pb-0">
                     <div className="flex items-center gap-2 text-xs text-neutral-400">
                       <span>{LANG_FLAGS[lang.code] ?? "🌐"}</span>
                       <span className="uppercase font-medium">{lang.name}</span>
@@ -264,7 +339,7 @@ function ProductModal({
                     <input
                       value={tr.name}
                       onChange={(e) => updateTr(lang.code, "name", e.target.value)}
-                      placeholder="Ürün adı"
+                      placeholder="Ürün adı *"
                       className={inputCls}
                     />
                     <textarea
@@ -273,6 +348,24 @@ function ProductModal({
                       placeholder="Açıklama"
                       rows={2}
                       className={`${inputCls} resize-none`}
+                    />
+                    <input
+                      value={tr.ingredients ?? ""}
+                      onChange={(e) => updateTr(lang.code, "ingredients", e.target.value)}
+                      placeholder="İçindekiler (virgülle)"
+                      className={inputCls}
+                    />
+                    <input
+                      value={tr.allergenNote ?? ""}
+                      onChange={(e) => updateTr(lang.code, "allergenNote", e.target.value)}
+                      placeholder="Alerjen notu"
+                      className={inputCls}
+                    />
+                    <input
+                      value={tr.specialNote ?? ""}
+                      onChange={(e) => updateTr(lang.code, "specialNote", e.target.value)}
+                      placeholder="Özel not / şef tavsiyesi"
+                      className={inputCls}
                     />
                   </div>
                 );
@@ -362,23 +455,25 @@ export default function AdminProducts() {
         </button>
       </div>
 
-      {/* Category filter */}
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setFilterCat("all")}
           className={`px-3 py-1.5 text-xs rounded-full transition-colors ${filterCat === "all" ? "bg-white text-black font-semibold" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
         >
-          Tümü
+          Tümü ({products.length})
         </button>
-        {categories.map((c) => (
-          <button
-            key={c.id}
-            onClick={() => setFilterCat(c.id)}
-            className={`px-3 py-1.5 text-xs rounded-full transition-colors ${filterCat === c.id ? "bg-white text-black font-semibold" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
-          >
-            {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug}
-          </button>
-        ))}
+        {categories.map((c) => {
+          const count = products.filter((p) => p.categoryId === c.id).length;
+          return (
+            <button
+              key={c.id}
+              onClick={() => setFilterCat(c.id)}
+              className={`px-3 py-1.5 text-xs rounded-full transition-colors ${filterCat === c.id ? "bg-white text-black font-semibold" : "bg-neutral-800 text-neutral-400 hover:text-white"}`}
+            >
+              {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug} ({count})
+            </button>
+          );
+        })}
       </div>
 
       {filteredProducts.length === 0 ? (

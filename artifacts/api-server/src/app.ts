@@ -12,6 +12,13 @@ declare module "express-session" {
   }
 }
 
+const isProd = process.env.NODE_ENV === "production";
+
+const sessionSecret = process.env.SESSION_SECRET;
+if (isProd && !sessionSecret) {
+  throw new Error("SESSION_SECRET environment variable is required in production");
+}
+
 const app: Express = express();
 
 app.use(
@@ -30,7 +37,22 @@ app.use(
 
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const explicitAllowList = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim()).filter(Boolean) ?? [];
+      if (explicitAllowList.length > 0) {
+        return callback(null, explicitAllowList.includes(origin));
+      }
+      if (
+        origin.includes("localhost") ||
+        origin.includes(".replit.dev") ||
+        origin.includes(".repl.co") ||
+        origin.includes(".replit.app")
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, false);
+    },
     credentials: true,
   })
 );
@@ -40,14 +62,14 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "qrmenu-dev-secret-change-in-prod",
+    secret: sessionSecret ?? "qrmenu-dev-only-secret",
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: isProd,
       httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      sameSite: isProd ? "none" : "lax",
     },
   })
 );

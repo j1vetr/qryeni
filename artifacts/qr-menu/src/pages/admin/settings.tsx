@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { apiFetch } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { Save } from "lucide-react";
+import { Save, Copy, ExternalLink } from "lucide-react";
 
 interface Settings {
   id?: number;
@@ -46,19 +46,27 @@ export default function AdminSettings() {
   const [newLang, setNewLang] = useState({ code: "", name: "" });
   const [saving, setSaving] = useState(false);
   const [qrUrl, setQrUrl] = useState("");
+  const [qrImg, setQrImg] = useState("");
+  const qrRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
     apiFetch<Settings>("/settings")
       .then((s) => {
         setForm(s);
         if (s.slug) {
-          const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
-          setQrUrl(`${base}/menu/${s.slug}`);
+          updateQr(s.slug);
         }
       })
       .catch(() => {});
     loadLanguages();
   }, []);
+
+  function updateQr(slug: string) {
+    const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
+    const url = `${base}/menu/${slug}`;
+    setQrUrl(url);
+    setQrImg(`https://api.qrserver.com/v1/create-qr-code/?size=200x200&format=png&data=${encodeURIComponent(url)}`);
+  }
 
   async function loadLanguages() {
     apiFetch<Language[]>("/languages").then(setLanguages);
@@ -72,10 +80,7 @@ export default function AdminSettings() {
     setSaving(true);
     try {
       await apiFetch("/settings", { method: "PUT", body: JSON.stringify(form) });
-      if (form.slug) {
-        const base = window.location.origin + import.meta.env.BASE_URL.replace(/\/$/, "");
-        setQrUrl(`${base}/menu/${form.slug}`);
-      }
+      if (form.slug) updateQr(form.slug);
       toast({ title: "Ayarlar kaydedildi" });
     } catch (err) {
       toast({ title: "Hata", description: String(err), variant: "destructive" });
@@ -112,6 +117,12 @@ export default function AdminSettings() {
     loadLanguages();
   }
 
+  function copyUrl() {
+    navigator.clipboard.writeText(qrUrl).then(() => {
+      toast({ title: "Link kopyalandı" });
+    });
+  }
+
   const inputCls = "w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white transition-colors";
 
   return (
@@ -138,9 +149,6 @@ export default function AdminSettings() {
         </Field>
         <Field label="Slug (Menü URL'si)">
           <input value={form.slug} onChange={(e) => set("slug", e.target.value)} className={inputCls} placeholder="restoran-adi" />
-          {form.slug && (
-            <p className="mt-1 text-xs text-neutral-500">Menü linki: <span className="text-neutral-300">/menu/{form.slug}</span></p>
-          )}
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Para Birimi">
@@ -174,7 +182,7 @@ export default function AdminSettings() {
             className={inputCls}
             placeholder="sk-..."
           />
-          <p className="mt-1 text-xs text-neutral-500">Ürün açıklamalarını AI ile üretmek için kullanılır</p>
+          <p className="mt-1 text-xs text-neutral-500">Ürün açıklama, içerik ve besin değerlerini otomatik üretir</p>
         </Field>
       </div>
 
@@ -223,10 +231,50 @@ export default function AdminSettings() {
 
       {qrUrl && (
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-6">
-          <h2 className="text-sm font-medium text-white uppercase tracking-widest mb-3">Menü Bağlantısı</h2>
-          <a href={qrUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-neutral-300 hover:text-white underline break-all">
-            {qrUrl}
-          </a>
+          <h2 className="text-sm font-medium text-white uppercase tracking-widest mb-4">Menü QR Kodu</h2>
+          <div className="flex items-start gap-6 flex-wrap">
+            <div className="bg-white p-3 rounded-xl flex-shrink-0">
+              <img
+                ref={qrRef}
+                src={qrImg}
+                alt="QR Kod"
+                width={160}
+                height={160}
+                className="block"
+              />
+            </div>
+            <div className="flex-1 min-w-0 space-y-3">
+              <div>
+                <p className="text-xs text-neutral-400 uppercase tracking-widest mb-1">Menü Linki</p>
+                <p className="text-sm text-neutral-300 break-all">{qrUrl}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={copyUrl}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 text-neutral-300 text-xs rounded-full hover:text-white border border-neutral-700 hover:border-neutral-500 transition-colors"
+                >
+                  <Copy className="w-3 h-3" />
+                  Linki Kopyala
+                </button>
+                <a
+                  href={qrUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-800 text-neutral-300 text-xs rounded-full hover:text-white border border-neutral-700 hover:border-neutral-500 transition-colors"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  Menüyü Aç
+                </a>
+                <a
+                  href={qrImg}
+                  download="qr-menu.png"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white text-black text-xs rounded-full hover:bg-neutral-100 font-semibold transition-colors"
+                >
+                  QR İndir
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
