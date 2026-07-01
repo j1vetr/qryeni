@@ -227,14 +227,14 @@ export default function HomePage() {
         {featuredProducts.length === 0 && allProducts.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
             {allProducts.slice(0, 6).map((p, i) => (
-              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} chefsSpecialLabel={tr.chefsSpecial} />
+              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} />
             ))}
           </div>
         )}
         {featuredProducts.length > 0 && (
           <div className="grid grid-cols-2 gap-3">
             {featuredProducts.map((p, i) => (
-              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} chefsSpecialLabel={tr.chefsSpecial} />
+              <ProductCard key={p.id} product={p} accent={accent} isFirst={i === 0} navigate={navigate} viewCount={viewCounts[p.id]} />
             ))}
           </div>
         )}
@@ -251,28 +251,18 @@ function ProductCard({
   accent,
   isFirst,
   navigate,
-  chefsSpecialLabel,
 }: {
   product: { id: number; slug: string; name: string; description?: string; price: number; currency: string; imageUrl?: string; categorySlug: string };
   accent: string;
   isFirst: boolean;
   navigate: (to: string) => void;
   viewCount?: number;
-  chefsSpecialLabel: string;
 }) {
   return (
     <button
       onClick={() => navigate(`/categories/${product.categorySlug}/${product.slug}`)}
       className="bg-[#141414] rounded-2xl overflow-hidden text-left relative hover:bg-[#1a1a1a] transition-colors"
     >
-      {isFirst && (
-        <div
-          className="absolute top-2 left-2 z-10 flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold"
-          style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}
-        >
-          {chefsSpecialLabel}
-        </div>
-      )}
       <div className="w-full aspect-[4/3] bg-[#1C1C1C] overflow-hidden flex items-center justify-center">
         {product.imageUrl ? (
           <img src={product.imageUrl} alt={product.name} className="w-full h-full object-contain" />

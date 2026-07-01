@@ -76,8 +76,6 @@ export default function ProductDetailPage() {
   const kcal = product.calories ?? nf?.energy;
   const kj = kcal ? Math.round(kcal * 4.184) : null;
 
-  const isChefSpecial = product.specialNote?.toLowerCase().includes("şef") || product.allergenNote?.toLowerCase().includes("özel");
-
   const maxMacro = Math.max(nf?.protein ?? 0, nf?.carbs ?? 0, nf?.fat ?? 0, 1);
 
   return (
@@ -98,15 +96,6 @@ export default function ProductDetailPage() {
       )}
 
       <div className="max-w-xl mx-auto px-4 pt-4 space-y-5">
-        {/* Chef badge */}
-        {isChefSpecial && (
-          <div
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold"
-            style={{ background: `${accent}22`, color: accent, border: `1px solid ${accent}44` }}
-          >
-            👨‍🍳 {tr.chefsSpecial.replace("☆ ", "")}
-          </div>
-        )}
 
         {/* Title + Price */}
         <div>
@@ -133,14 +122,14 @@ export default function ProductDetailPage() {
               <div className="bg-[#141414] rounded-2xl p-4 border border-white/8 flex flex-col gap-2">
                 <span className="text-2xl leading-none">🔥</span>
                 <div className="text-2xl font-bold text-white leading-none mt-1">{kcal}</div>
-                <div className="text-[11px] text-white/35 uppercase tracking-widest">kcal · {tr.calories}</div>
+                <div className="text-[11px] text-white/35 tracking-widest">kcal · {tr.calories}</div>
               </div>
             )}
             {kj && (
               <div className="bg-[#141414] rounded-2xl p-4 border border-white/8 flex flex-col gap-2">
                 <span className="text-2xl leading-none">⚡</span>
                 <div className="text-2xl font-bold text-white leading-none mt-1">{kj}</div>
-                <div className="text-[11px] text-white/35 uppercase tracking-widest">kJ · {tr.energy}</div>
+                <div className="text-[11px] text-white/35 tracking-widest">kJ · {tr.energy}</div>
               </div>
             )}
           </div>
@@ -192,7 +181,7 @@ export default function ProductDetailPage() {
         {nf && (nf.protein || nf.carbs || nf.fat) ? (
           <div className="bg-[#141414] rounded-2xl border border-white/5 overflow-hidden">
             <div className="px-5 pt-5 pb-1">
-              <h2 className="text-sm font-bold text-white/60 uppercase tracking-widest">{tr.nutritionFacts}</h2>
+              <h2 className="text-sm font-bold text-white/60 tracking-widest">{tr.nutritionFacts}</h2>
             </div>
             <div className="px-5 pb-5 pt-4 space-y-4">
               {[

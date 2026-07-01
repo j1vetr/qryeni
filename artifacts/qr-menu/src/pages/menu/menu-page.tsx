@@ -170,7 +170,7 @@ function ProductDetailModal({
 
           {product.ingredients && (
             <div>
-              <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-1">
+              <h3 className="text-xs font-semibold text-neutral-400 tracking-widest mb-1">
                 {lang === "tr"
                   ? "İçindekiler"
                   : lang === "ru"
@@ -185,7 +185,7 @@ function ProductDetailModal({
 
           {hasNutrition && (
             <div>
-              <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2">
+              <h3 className="text-xs font-semibold text-neutral-400 tracking-widest mb-2">
                 {lang === "tr"
                   ? "Besin Değerleri"
                   : lang === "ru"
@@ -225,7 +225,7 @@ function ProductDetailModal({
 
           {product.allergens && product.allergens.length > 0 && (
             <div>
-              <h3 className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-2">
+              <h3 className="text-xs font-semibold text-neutral-400 tracking-widest mb-2">
                 {lang === "tr"
                   ? "Alerjenler"
                   : lang === "ru"
