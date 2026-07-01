@@ -109,6 +109,9 @@ export default function CategoryDetailPage() {
         )}
 
         {/* Product list */}
+        {filtered.length === 0 && (
+          <p className="mt-6 text-center text-sm text-white/40">{tr.noResults}</p>
+        )}
         <div className="space-y-3">
           {filtered.map((product) => {
             const vc = viewCounts[product.id] ?? 0;
