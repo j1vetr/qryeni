@@ -219,19 +219,6 @@ export default function ProductDetailPage() {
           </div>
         ) : null}
 
-        {/* Chef's note */}
-        {product.specialNote && (
-          <div className="bg-[#141414] rounded-2xl p-4 border border-white/5">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-lg" style={{ color: accent }}>❝</span>
-              <span className="text-sm font-bold" style={{ color: accent }}>{tr.chefsNote}</span>
-            </div>
-            <p className="text-sm text-white/60 italic leading-relaxed">{product.specialNote}</p>
-            <p className="text-right text-xs italic mt-2" style={{ color: `${accent}99` }}>
-              — {tr.ourTeam}
-            </p>
-          </div>
-        )}
 
         {/* Back button */}
         <button

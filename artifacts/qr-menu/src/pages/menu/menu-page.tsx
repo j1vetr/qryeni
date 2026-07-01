@@ -261,16 +261,6 @@ function ProductDetailModal({
             </div>
           )}
 
-          {product.specialNote && (
-            <div
-              className="rounded-xl p-3"
-              style={{ backgroundColor: withOpacity(primaryColor, 0.06) }}
-            >
-              <p className="text-xs italic" style={{ color: withOpacity(primaryColor, 0.85) }}>
-                ✦ {product.specialNote}
-              </p>
-            </div>
-          )}
         </div>
       </div>
     </div>
