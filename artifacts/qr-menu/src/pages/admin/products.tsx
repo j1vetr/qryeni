@@ -127,18 +127,14 @@ async function compressImage(
   });
 }
 
-/** Compress an image from a URL through the same pipeline. */
-async function compressFromUrl(
-  url: string,
-  maxWidth = 1200,
-  targetBytes = 200 * 1024
-): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new globalThis.Image();
-    img.crossOrigin = "anonymous";
-    img.onload  = () => compressToTarget(img, maxWidth, targetBytes).then(resolve).catch(reject);
-    img.onerror = () => reject(new Error("Görsel URL'den yüklenemedi"));
-    img.src = url;
+/** Optimize an image URL server-side (CORS-free) via the API. Returns the new serving URL. */
+async function optimizeImageUrl(url: string): Promise<{ servingUrl: string; size: number }> {
+  // Resolve relative paths (e.g. /api/storage/objects/...) to absolute so the
+  // server can fetch them without receiving an invalid URL error.
+  const absoluteUrl = url.startsWith("/") ? `${window.location.origin}${url}` : url;
+  return apiFetch<{ servingUrl: string; size: number }>("/storage/optimize-image", {
+    method: "POST",
+    body: JSON.stringify({ url: absoluteUrl }),
   });
 }
 
@@ -466,15 +462,14 @@ function ProductModal({
     }
   }
 
-  /* ── Optimize existing image ── */
+  /* ── Optimize existing image (server-side, CORS-free) ── */
   async function handleOptimize() {
     if (!imageUrl) return;
     setOptimizing(true);
     try {
-      const blob = await compressFromUrl(imageUrl);
-      const url  = await uploadBlob(blob, "optimized.jpg");
-      setImageUrl(url);
-      toast({ title: "Görsel optimize edildi ✓", description: formatBytes(blob.size) });
+      const { servingUrl, size } = await optimizeImageUrl(imageUrl);
+      setImageUrl(servingUrl);
+      toast({ title: "Görsel optimize edildi ✓", description: formatBytes(size) });
     } catch (err) {
       toast({ title: "Optimizasyon hatası", description: String(err), variant: "destructive" });
     } finally {
@@ -861,9 +856,8 @@ export default function AdminProducts() {
     let failed = 0;
     for (const p of withImages) {
       try {
-        const blob = await compressFromUrl(p.imageUrl!);
-        const url  = await uploadBlob(blob, "optimized.jpg");
-        await apiFetch(`/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ imageUrl: url }) });
+        const { servingUrl } = await optimizeImageUrl(p.imageUrl!);
+        await apiFetch(`/products/${p.id}`, { method: "PATCH", body: JSON.stringify({ imageUrl: servingUrl }) });
       } catch { failed++; }
       done++;
       setBulkProgress({ done, total: withImages.length });
