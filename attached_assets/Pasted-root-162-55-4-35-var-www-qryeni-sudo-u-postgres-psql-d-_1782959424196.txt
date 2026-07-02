@@ -1,0 +1,35 @@
+root@162-55-4-35:/var/www/qryeni# sudo -u postgres psql -d qrmenu_db -f /var/www/qryeni/scripts/setup-db.sql
+psql:/var/www/qryeni/scripts/setup-db.sql:10: NOTICE:  relation "users" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:31: NOTICE:  relation "settings" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:40: NOTICE:  relation "languages" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:51: NOTICE:  relation "categories" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:53: NOTICE:  relation "categories_sort_idx" already exists, skipping
+CREATE INDEX
+psql:/var/www/qryeni/scripts/setup-db.sql:63: NOTICE:  relation "category_translations" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:79: NOTICE:  relation "products" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:81: NOTICE:  relation "products_category_idx" already exists, skipping
+CREATE INDEX
+psql:/var/www/qryeni/scripts/setup-db.sql:94: NOTICE:  relation "product_translations" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:104: NOTICE:  relation "analytics_events" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:106: NOTICE:  relation "analytics_type_idx" already exists, skipping
+CREATE INDEX
+psql:/var/www/qryeni/scripts/setup-db.sql:107: NOTICE:  relation "analytics_created_idx" already exists, skipping
+CREATE INDEX
+psql:/var/www/qryeni/scripts/setup-db.sql:108: NOTICE:  relation "analytics_product_idx" already exists, skipping
+CREATE INDEX
+psql:/var/www/qryeni/scripts/setup-db.sql:120: NOTICE:  relation "ai_generation_logs" already exists, skipping
+CREATE TABLE
+psql:/var/www/qryeni/scripts/setup-db.sql:122: NOTICE:  relation "ai_logs_product_idx" already exists, skipping
+CREATE INDEX
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+root@162-55-4-35:/var/www/qryeni#
