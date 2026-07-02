@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from "framer-motion";
-import { ReactNode } from "react";
+import { ReactNode, useEffect } from "react";
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -7,6 +7,10 @@ interface PageTransitionProps {
 
 export default function PageTransition({ children }: PageTransitionProps) {
   const prefersReduced = useReducedMotion();
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
 
   if (prefersReduced) {
     return <>{children}</>;
