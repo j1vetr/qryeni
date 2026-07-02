@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import {
   Plus, Pencil, Trash2, X, GripVertical, Sparkles, Upload,
   ImageIcon, Eye, Image, ChevronDown, ChevronUp,
+  ListPlus, Images, CheckSquare2, Square, Loader2, CheckCircle2, XCircle,
 } from "lucide-react";
 import {
   DndContext, closestCenter, PointerSensor,
@@ -175,6 +176,490 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024)          return `${bytes} B`;
   if (bytes < 1024 * 1024)   return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/* ─── Shared style constants ──────────────────────────────────── */
+const INPUT = "w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-white";
+
+/* ─── BulkAddModal ────────────────────────────────────────────── */
+interface BulkRow {
+  id: string;
+  name: string;
+  price: string;
+  categoryId: number;
+  status: "idle" | "ai" | "saving" | "done" | "error";
+  error?: string;
+}
+
+type BulkPhase = "idle" | "ai" | "saving" | "done";
+
+function BulkAddModal({
+  categories,
+  onClose,
+  onDone,
+}: {
+  categories: Category[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { toast } = useToast();
+  const defaultCat = categories[0]?.id ?? 0;
+
+  const newRow = (): BulkRow => ({
+    id: crypto.randomUUID(),
+    name: "",
+    price: "",
+    categoryId: defaultCat,
+    status: "idle",
+  });
+
+  const [rows, setRows] = useState<BulkRow[]>([newRow(), newRow(), newRow()]);
+  const [phase, setPhase]       = useState<BulkPhase>("idle");
+  const [aiProgress, setAiProg] = useState({ done: 0, total: 0 });
+  const [svProgress, setSvProg] = useState({ done: 0, total: 0 });
+
+  function updateRow(id: string, patch: Partial<BulkRow>) {
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  const validRows = rows.filter((r) => r.name.trim() && parseFloat(r.price) > 0);
+
+  async function handleRun() {
+    if (!validRows.length) {
+      toast({ title: "En az 1 geçerli satır gerekli (ad + fiyat)", variant: "destructive" });
+      return;
+    }
+
+    // ── Phase 1: AI generation ──────────────────────────────────
+    setPhase("ai");
+    setAiProg({ done: 0, total: validRows.length });
+    const aiData: Record<string, Record<string, unknown>> = {};
+
+    for (let i = 0; i < validRows.length; i++) {
+      const row = validRows[i];
+      updateRow(row.id, { status: "ai" });
+      try {
+        const cat     = categories.find((c) => c.id === row.categoryId);
+        const catName = cat?.translations.find((t) => t.languageCode === "tr")?.name;
+        const result  = await apiFetch<Record<string, unknown>>("/ai/generate", {
+          method: "POST",
+          body: JSON.stringify({ productName: row.name, category: catName }),
+        });
+        aiData[row.id] = result;
+        updateRow(row.id, { status: "idle" });
+      } catch {
+        updateRow(row.id, { status: "error", error: "AI hatası" });
+      }
+      setAiProg({ done: i + 1, total: validRows.length });
+    }
+
+    // ── Phase 2: Save ──────────────────────────────────────────
+    setPhase("saving");
+    setSvProg({ done: 0, total: validRows.length });
+
+    for (let i = 0; i < validRows.length; i++) {
+      const row = validRows[i];
+      if (row.status === "error") { setSvProg({ done: i + 1, total: validRows.length }); continue; }
+      updateRow(row.id, { status: "saving" });
+      try {
+        const ai   = aiData[row.id] as { translations?: Record<string, { name: string; description: string; ingredients: string; allergenNote: string }>; allergens?: string[]; nutritionFacts?: object; calories?: number } | undefined;
+        const base = row.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+        const slug = `${base}-${Date.now()}`;
+        await apiFetch("/products", {
+          method: "POST",
+          body: JSON.stringify({
+            slug,
+            categoryId: row.categoryId,
+            price: parseFloat(row.price),
+            isActive: true,
+            calories: ai?.calories,
+            allergens: ai?.allergens ?? [],
+            nutritionFacts: ai?.nutritionFacts ?? {},
+            translations: ai?.translations
+              ? Object.entries(ai.translations).map(([code, t]) => ({
+                  languageCode: code, name: t.name, description: t.description,
+                  ingredients: t.ingredients, allergenNote: t.allergenNote,
+                }))
+              : [{ languageCode: "tr", name: row.name }],
+          }),
+        });
+        updateRow(row.id, { status: "done" });
+      } catch {
+        updateRow(row.id, { status: "error", error: "Kaydetme hatası" });
+      }
+      setSvProg({ done: i + 1, total: validRows.length });
+    }
+
+    setPhase("done");
+    toast({ title: "Toplu ekleme tamamlandı ✓" });
+    onDone();
+  }
+
+  const running = phase === "ai" || phase === "saving";
+
+  const statusIcon = (s: BulkRow["status"]) => {
+    if (s === "ai" || s === "saving") return <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-400" />;
+    if (s === "done")  return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />;
+    if (s === "error") return <XCircle className="w-3.5 h-3.5 text-red-400" />;
+    return null;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[94vh] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
+          <div>
+            <h2 className="text-white font-semibold flex items-center gap-2"><ListPlus className="w-4 h-4 text-amber-400" /> Toplu Ürün Ekle</h2>
+            <p className="text-xs text-neutral-500 mt-0.5">Her satır için AI otomatik içerik üretir ve kaydeder</p>
+          </div>
+          <button onClick={onClose} disabled={running} className="text-neutral-400 hover:text-white disabled:opacity-30 transition-colors p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Table */}
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          <div className="space-y-2">
+            {/* Column headers */}
+            <div className="grid grid-cols-[1fr_100px_140px_32px_32px] gap-2 text-[10px] text-neutral-500 uppercase tracking-widest px-1">
+              <span>Ürün Adı *</span><span>Fiyat *</span><span>Kategori</span><span></span><span></span>
+            </div>
+
+            {rows.map((row) => (
+              <div key={row.id} className="grid grid-cols-[1fr_100px_140px_32px_32px] gap-2 items-center">
+                <input
+                  value={row.name}
+                  disabled={running}
+                  onChange={(e) => updateRow(row.id, { name: e.target.value })}
+                  placeholder="Ürün adı"
+                  className={`${INPUT} disabled:opacity-50 ${row.status === "error" ? "border-red-700" : row.status === "done" ? "border-emerald-800" : ""}`}
+                />
+                <input
+                  type="number"
+                  value={row.price}
+                  disabled={running}
+                  onChange={(e) => updateRow(row.id, { price: e.target.value })}
+                  placeholder="0"
+                  className={`${INPUT} disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                />
+                <select
+                  value={row.categoryId}
+                  disabled={running}
+                  onChange={(e) => updateRow(row.id, { categoryId: Number(e.target.value) })}
+                  className={`${INPUT} disabled:opacity-50`}
+                >
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.translations.find((t) => t.languageCode === "tr")?.name ?? c.slug}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex items-center justify-center">{statusIcon(row.status)}</div>
+                <button
+                  onClick={() => setRows((prev) => prev.filter((r) => r.id !== row.id))}
+                  disabled={running || rows.length <= 1}
+                  className="text-neutral-600 hover:text-red-400 disabled:opacity-20 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {!running && (
+            <button
+              onClick={() => setRows((prev) => [...prev, newRow()])}
+              className="mt-3 flex items-center gap-1.5 text-xs text-neutral-500 hover:text-white transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Satır Ekle
+            </button>
+          )}
+        </div>
+
+        {/* Progress */}
+        {running && (
+          <div className="px-6 py-3 border-t border-neutral-800 shrink-0 space-y-2">
+            {phase === "ai" && (
+              <div>
+                <div className="flex justify-between text-xs text-neutral-400 mb-1">
+                  <span className="flex items-center gap-1.5"><Sparkles className="w-3 h-3 text-amber-400" /> AI içerik üretiyor…</span>
+                  <span>{aiProgress.done} / {aiProgress.total}</span>
+                </div>
+                <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${(aiProgress.done / aiProgress.total) * 100}%` }} />
+                </div>
+              </div>
+            )}
+            {phase === "saving" && (
+              <div>
+                <div className="flex justify-between text-xs text-neutral-400 mb-1">
+                  <span className="flex items-center gap-1.5"><Loader2 className="w-3 h-3 animate-spin" /> Kaydediliyor…</span>
+                  <span>{svProgress.done} / {svProgress.total}</span>
+                </div>
+                <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full transition-all" style={{ width: `${(svProgress.done / svProgress.total) * 100}%` }} />
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-neutral-800 shrink-0">
+          <button
+            onClick={onClose}
+            disabled={running}
+            className="flex-1 py-2.5 rounded-full border border-neutral-700 text-neutral-300 text-sm hover:border-white disabled:opacity-30 transition-colors"
+          >
+            {phase === "done" ? "Kapat" : "İptal"}
+          </button>
+          <button
+            onClick={handleRun}
+            disabled={running || validRows.length === 0}
+            className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg,#C9A84C1A,#C9A84C0D)", border: "1px solid #C9A84C66", color: "#C9A84C" }}
+          >
+            {running
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> İşleniyor…</>
+              : <><Sparkles className="w-4 h-4" /> ✦ AI ile Üret &amp; Kaydet ({validRows.length})</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─── BulkImageModal ──────────────────────────────────────────── */
+interface ImageJob {
+  productId: number;
+  productName: string;
+  categoryName?: string;
+  hasImage: boolean;
+  selected: boolean;
+  status: "pending" | "generating" | "uploading" | "done" | "error";
+  error?: string;
+}
+
+const IMAGE_STYLES = [
+  { key: "restaurant",   label: "🍽️ Restoran",    desc: "Sıcak, doğal ortam" },
+  { key: "professional", label: "📸 Profesyonel", desc: "Koyu fon, dramatik ışık" },
+  { key: "rustic",       label: "🌿 Rustik",       desc: "Ahşap, güneş ışığı" },
+  { key: "minimal",      label: "◾ Minimalist",    desc: "Sade, temiz" },
+  { key: "outdoor",      label: "🌳 Doğa",         desc: "Bahçe, teras" },
+] as const;
+
+function BulkImageModal({
+  products,
+  categories,
+  onClose,
+  onDone,
+}: {
+  products: Product[];
+  categories: Category[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { toast } = useToast();
+
+  const [jobs, setJobs] = useState<ImageJob[]>(() =>
+    products.map((p) => ({
+      productId: p.id,
+      productName: p.translations.find((t) => t.languageCode === "tr")?.name ?? p.slug,
+      categoryName: categories.find((c) => c.id === p.categoryId)?.translations.find((t) => t.languageCode === "tr")?.name,
+      hasImage: !!p.imageUrl,
+      selected: !p.imageUrl,
+      status: "pending" as const,
+    }))
+  );
+  const [style, setStyle]   = useState<string>("restaurant");
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
+
+  function toggleJob(id: number) {
+    setJobs((prev) => prev.map((j) => (j.productId === id ? { ...j, selected: !j.selected } : j)));
+  }
+  function selectAll()   { setJobs((prev) => prev.map((j) => ({ ...j, selected: true  }))); }
+  function selectNone()  { setJobs((prev) => prev.map((j) => ({ ...j, selected: false }))); }
+  function selectNoImg() { setJobs((prev) => prev.map((j) => ({ ...j, selected: !j.hasImage }))); }
+
+  function updateJob(id: number, patch: Partial<ImageJob>) {
+    setJobs((prev) => prev.map((j) => (j.productId === id ? { ...j, ...patch } : j)));
+  }
+
+  const selectedJobs = jobs.filter((j) => j.selected);
+
+  async function handleGenerate() {
+    if (!selectedJobs.length) {
+      toast({ title: "En az 1 ürün seçin", variant: "destructive" });
+      return;
+    }
+    setRunning(true);
+    setProgress({ done: 0, total: selectedJobs.length });
+
+    for (let i = 0; i < selectedJobs.length; i++) {
+      const job = selectedJobs[i];
+      updateJob(job.productId, { status: "generating" });
+      try {
+        const result = await apiFetch<{ b64: string }>("/ai/generate-image", {
+          method: "POST",
+          body: JSON.stringify({
+            productName: job.productName,
+            productId:   job.productId,
+            category:    job.categoryName,
+            style,
+          }),
+        });
+
+        updateJob(job.productId, { status: "uploading" });
+        const blob       = await compressDataUrl(`data:image/jpeg;base64,${result.b64}`);
+        const servingUrl = await uploadBlob(blob, "ai-image.jpg");
+
+        await apiFetch(`/products/${job.productId}`, {
+          method: "PATCH",
+          body: JSON.stringify({ imageUrl: servingUrl }),
+        });
+        updateJob(job.productId, { status: "done" });
+      } catch (err) {
+        updateJob(job.productId, { status: "error", error: String(err).slice(0, 80) });
+      }
+      setProgress({ done: i + 1, total: selectedJobs.length });
+    }
+
+    setRunning(false);
+    toast({ title: "Toplu görsel üretimi tamamlandı ✓" });
+    onDone();
+  }
+
+  const jobStatusIcon = (s: ImageJob["status"]) => {
+    if (s === "generating") return <span className="text-[9px] text-amber-400 font-bold animate-pulse">AI</span>;
+    if (s === "uploading")  return <Loader2 className="w-3 h-3 animate-spin text-neutral-400" />;
+    if (s === "done")       return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />;
+    if (s === "error")      return <XCircle className="w-3.5 h-3.5 text-red-400" />;
+    return null;
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-neutral-900 border border-neutral-800 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[94vh] flex flex-col">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-800 shrink-0">
+          <div>
+            <h2 className="text-white font-semibold flex items-center gap-2"><Images className="w-4 h-4 text-amber-400" /> Toplu Görsel Üret</h2>
+            <p className="text-xs text-neutral-500 mt-0.5">{selectedJobs.length} ürün seçili · AI ile birer birer üretilir</p>
+          </div>
+          <button onClick={onClose} disabled={running} className="text-neutral-400 hover:text-white disabled:opacity-30 transition-colors p-1">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto flex-1 flex flex-col">
+          {/* Style picker */}
+          <div className="px-6 pt-4 pb-3 shrink-0">
+            <p className="text-[10px] text-neutral-500 uppercase tracking-widest mb-2">Görsel Stili</p>
+            <div className="grid grid-cols-5 gap-1.5">
+              {IMAGE_STYLES.map(({ key, label, desc }) => (
+                <button
+                  key={key}
+                  onClick={() => setStyle(key)}
+                  disabled={running}
+                  className={`px-2 py-2 rounded-lg border text-[11px] text-left transition-all disabled:opacity-40 ${
+                    style === key
+                      ? "border-amber-500/60 bg-amber-950/30 text-amber-400"
+                      : "border-neutral-700 text-neutral-400 hover:border-neutral-500"
+                  }`}
+                >
+                  <div className="font-medium leading-tight">{label}</div>
+                  <div className="text-[9px] opacity-60 mt-0.5">{desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Selection controls */}
+          <div className="px-6 pb-2 flex items-center gap-3 shrink-0">
+            <span className="text-xs text-neutral-500">Seç:</span>
+            <button onClick={selectAll}   disabled={running} className="text-xs text-neutral-400 hover:text-white transition-colors disabled:opacity-30">Tümü</button>
+            <button onClick={selectNone}  disabled={running} className="text-xs text-neutral-400 hover:text-white transition-colors disabled:opacity-30">Hiçbiri</button>
+            <button onClick={selectNoImg} disabled={running} className="text-xs text-neutral-400 hover:text-white transition-colors disabled:opacity-30">Görselsizler</button>
+          </div>
+
+          {/* Product list */}
+          <div className="px-6 pb-4 space-y-1 flex-1">
+            {jobs.map((job) => (
+              <button
+                key={job.productId}
+                onClick={() => !running && toggleJob(job.productId)}
+                disabled={running}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-all disabled:cursor-default ${
+                  job.selected
+                    ? "border-amber-800/50 bg-amber-950/20"
+                    : "border-neutral-800 bg-neutral-800/30 hover:border-neutral-700"
+                }`}
+              >
+                <div className="shrink-0 text-neutral-500">
+                  {job.selected
+                    ? <CheckSquare2 className="w-4 h-4 text-amber-400" />
+                    : <Square className="w-4 h-4" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-white truncate">{job.productName}</div>
+                  <div className="text-[10px] text-neutral-500">{job.categoryName ?? "—"}{job.hasImage ? " · görseli var" : " · görsel yok"}</div>
+                </div>
+                <div className="shrink-0 w-5 flex items-center justify-center">
+                  {job.status !== "pending" && jobStatusIcon(job.status)}
+                  {job.status === "error" && job.error && (
+                    <span className="text-[9px] text-red-400 absolute ml-6 whitespace-nowrap">{job.error}</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Progress */}
+        {running && (
+          <div className="px-6 py-3 border-t border-neutral-800 shrink-0">
+            <div className="flex justify-between text-xs text-neutral-400 mb-1">
+              <span className="flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3 text-amber-400" />
+                {jobs.find((j) => j.status === "generating") ? "AI görsel üretiyor…"
+                  : jobs.find((j) => j.status === "uploading") ? "Yükleniyor…"
+                  : "İşleniyor…"}
+              </span>
+              <span>{progress.done} / {progress.total}</span>
+            </div>
+            <div className="h-1 bg-neutral-800 rounded-full overflow-hidden">
+              <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }} />
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="flex gap-3 px-6 py-4 border-t border-neutral-800 shrink-0">
+          <button
+            onClick={onClose}
+            disabled={running}
+            className="flex-1 py-2.5 rounded-full border border-neutral-700 text-neutral-300 text-sm hover:border-white disabled:opacity-30 transition-colors"
+          >
+            Kapat
+          </button>
+          <button
+            onClick={handleGenerate}
+            disabled={running || selectedJobs.length === 0}
+            className="flex-1 py-2.5 rounded-full text-sm font-semibold disabled:opacity-40 transition-all flex items-center justify-center gap-2"
+            style={{ background: "linear-gradient(135deg,#C9A84C1A,#C9A84C0D)", border: "1px solid #C9A84C66", color: "#C9A84C" }}
+          >
+            {running
+              ? <><Loader2 className="w-4 h-4 animate-spin" /> Üretiliyor…</>
+              : <><Images className="w-4 h-4" /> {selectedJobs.length} Görsel Üret</>}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function formatViewCount(n: number): string {
@@ -845,6 +1330,8 @@ export default function AdminProducts() {
   const sensors = useSensors(useSensor(PointerSensor));
   const [bulkOptimizing, setBulkOptimizing] = useState(false);
   const [bulkProgress,   setBulkProgress]   = useState<{ done: number; total: number } | null>(null);
+  const [showBulkAdd,    setShowBulkAdd]    = useState(false);
+  const [showBulkImage,  setShowBulkImage]  = useState(false);
 
   async function handleBulkOptimize() {
     const withImages = products.filter((p) => p.imageUrl);
@@ -920,7 +1407,7 @@ export default function AdminProducts() {
           <h1 className="text-2xl font-bold text-white">Ürünler</h1>
           <p className="text-neutral-400 text-sm mt-1">Sürükleyerek sıralayabilirsiniz</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           {bulkProgress && (
             <span className="text-xs text-neutral-400">{bulkProgress.done} / {bulkProgress.total} işlendi</span>
           )}
@@ -931,7 +1418,19 @@ export default function AdminProducts() {
           >
             {bulkOptimizing
               ? <><span className="animate-spin text-xs">⟳</span> Optimize ediliyor…</>
-              : <><Image className="w-4 h-4" /> Tüm Görselleri Optimize Et</>}
+              : <><Image className="w-4 h-4" /> Görselleri Optimize Et</>}
+          </button>
+          <button
+            onClick={() => setShowBulkImage(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors"
+          >
+            <Images className="w-4 h-4" /> Toplu Görsel Üret
+          </button>
+          <button
+            onClick={() => setShowBulkAdd(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-neutral-800 border border-neutral-700 text-neutral-400 text-sm rounded-full hover:text-white hover:border-neutral-500 transition-colors"
+          >
+            <ListPlus className="w-4 h-4" /> Toplu Ekle
           </button>
           <button
             onClick={() => setEditing({})}
@@ -977,6 +1476,23 @@ export default function AdminProducts() {
         <ProductModal
           product={editing} categories={categories} languages={languages}
           onClose={() => setEditing(false)} onSave={load}
+        />
+      )}
+
+      {showBulkAdd && (
+        <BulkAddModal
+          categories={categories}
+          onClose={() => setShowBulkAdd(false)}
+          onDone={() => { setShowBulkAdd(false); load(); }}
+        />
+      )}
+
+      {showBulkImage && (
+        <BulkImageModal
+          products={products}
+          categories={categories}
+          onClose={() => setShowBulkImage(false)}
+          onDone={() => { load(); }}
         />
       )}
     </div>
