@@ -54,7 +54,7 @@ const tr: Translations = {
 
   categories: "Kategoriler",
   categoriesSubtitle: "Menümüzü keşfedin. Her tabak, özenle seçilmiş malzemelerle hazırlandı.",
-  items: (n) => `${n} seçenek`,
+  items: (n) => `${n} Seçenek`,
 
   home: "Ana Sayfa",
   viewDetails: "Detayı Gör →",
