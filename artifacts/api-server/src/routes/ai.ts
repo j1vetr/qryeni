@@ -50,99 +50,146 @@ const STYLE_DEFS: Record<ImageStyle, StyleDef> = {
 };
 
 /* ─── Turkish food serving hints ─────────────────────────────────
- * Each entry matches product/category keywords and tells the model
- * exactly how the dish is ACTUALLY served in Turkish restaurants.
- * More specific entries must come first (longest-match wins).
+ * ORDER MATTERS: first match wins. Put the most specific / category-
+ * defining keywords BEFORE structural modifiers (e.g. "tost" before
+ * "yarım ekmek" so "Yarım Ekmek Kaşarlı Tost" gets the tost hint).
+ * Short keywords (≤4 chars) use word-boundary matching via kwMatches()
+ * to prevent substring false-positives (e.g. "su" ≠ "susam").
  * ──────────────────────────────────────────────────────────────── */
 const PLATING_HINTS: { keywords: string[]; hint: string }[] = [
-  // Ekmek döner variants — must show real Turkish somun bread
+  // ── Toasted sandwiches (BEFORE "yarım ekmek" to avoid mismatch) ──
   {
-    keywords: ["yarım ekmek", "tam ekmek", "ekmek döner", "ekmek arası döner"],
-    hint: "half a crusty white Turkish somun bread sliced open, generously filled with shaved döner meat (beef or chicken), a few slices of fresh tomato and thin onion rings inside, wrapped loosely in paper on a simple plate — EXACTLY as served at a Turkish lokanta or dönerci, zero fancy styling",
+    keywords: ["tost", "kaşarlı tost", "karışık tost", "şarküteri tost"],
+    hint: "a toasted sandwich (tost) cut diagonally showing melted cheese inside, served on a simple plate — exactly like a Turkish büfe tost, no garnish",
   },
-  // Dürüm döner
+  // ── Burgers / sandwiches ──
   {
-    keywords: ["dürüm", "lavaş"],
-    hint: "döner meat tightly wrapped in thin Turkish lavaş flatbread, sliced slightly to show the filling, on a simple plate with a wedge of lemon — classic Turkish dürüm presentation, no garnish",
+    keywords: ["burger"],
+    hint: "burger in a toasted bun, generous filling visible from the side, served on a simple plate as in a Turkish fast-food spot",
   },
-  // Generic döner (if no bread variant matched above)
   {
-    keywords: ["döner"],
-    hint: "döner kebab meat in a simple plate or in bread as typically served in Turkey — sliced meat, simple tomato and onion alongside, no microgreens or artistic plating",
+    keywords: ["sandviç", "sandwich"],
+    hint: "sandwich on a simple plate as served in a Turkish büfe — generous filling, straightforward presentation",
   },
-  // Sosisli sandviç — long sausage, NOT cocktail/small sausages
+  // ── Sosisli (BEFORE "ekmek" entries so sosisli ekmek still works) ──
   {
-    keywords: ["sosisli", "sosis"],
-    hint: "one long hot dog sausage (NOT small cocktail sausages) inside a long bread roll, generous zigzag lines of ketchup and mayonnaise on top, served on a simple white plate — exactly like a Turkish sosisli sandviç from a büfe or snack bar",
+    keywords: ["sosisli", "sosis ekmek"],
+    hint: "one long hot dog sausage (NOT small cocktail sausages) nestled inside a long bread roll, generous zigzag lines of ketchup and mayonnaise on top, served on a simple white plate — exactly like a Turkish sosisli sandviç from a büfe",
   },
-  // Köfte — on a plate with bulgur/rice
-  {
-    keywords: ["köfte", "köftesi"],
-    hint: "grilled flattened köfte patties on a simple plate alongside a mound of rice pilaf or bulgur, a few tomato and pepper slices on the side — classic Turkish lokanta plate, no decoration",
-  },
-  // Izgara / grilled meats
-  {
-    keywords: ["izgara", "kanat", "but", "pirzola", "biftek", "şiş"],
-    hint: "grilled meat on a simple oval plate with rice and grilled tomato/pepper alongside — exactly how it's served in a Turkish restaurant, no fancy plating",
-  },
-  // Pide — boat shaped, hot from oven
-  {
-    keywords: ["pide"],
-    hint: "boat-shaped Turkish pide fresh from the stone oven, golden-brown crust, filling visible on top, on a simple plate or parchment — traditional Turkish pide appearance",
-  },
-  // Lahmacun
+  // ── Lahmacun ──
   {
     keywords: ["lahmacun"],
-    hint: "thin round lahmacun flatbread with minced meat topping, on a simple plate, optionally rolled with parsley and lemon — exactly as served in a Turkish restaurant",
+    hint: "thin round lahmacun flatbread with minced meat topping, on a simple plate, optionally rolled with parsley and a lemon wedge alongside — exactly as served in a Turkish restaurant",
   },
-  // Soups
+  // ── Pide ──
   {
-    keywords: ["çorba", "soup", "mercimek", "domates", "kremalı", "işkembe"],
-    hint: "soup in a simple ceramic bowl with steam rising, small lemon wedge on the side, a pinch of dried mint or red pepper on top — classic Turkish çorba service",
+    keywords: ["pide"],
+    hint: "boat-shaped Turkish pide fresh from the stone oven, golden-brown crust, filling clearly visible on top, on a simple plate or parchment paper — traditional Turkish pide",
   },
-  // Desserts
+  // ── Pizza ──
   {
-    keywords: ["tatlı", "baklava", "künefe", "sütlaç", "kazandibi", "revani", "helva", "dondurma"],
-    hint: "traditional Turkish dessert portion as served in a Turkish restaurant — simple plate, no over-styled garnish",
+    keywords: ["pizza"],
+    hint: "pizza as served in Turkey — full top-down or slight angle showing toppings, simple plate",
   },
-  // Generic desserts / cafe items
+  // ── Ekmek döner variants (after tost/burger so they don't steal those) ──
   {
-    keywords: ["pasta", "kek", "brownie", "cheesecake", "tiramisu", "waffle"],
+    keywords: ["yarım ekmek döner", "tam ekmek döner", "ekmek döner", "ekmek arası döner", "yarım ekmek et", "yarım ekmek tavuk"],
+    hint: "half a crusty white Turkish somun bread (NOT a fancy artisan loaf) sliced open and generously packed with shaved döner meat, a few fresh tomato slices and thin onion rings inside, loosely wrapped in paper on a simple plate — EXACTLY as served at a Turkish dönerci or lokanta, zero fancy styling",
+  },
+  // Yarım / tam ekmek without döner context (e.g. "Yarım Ekmek Kaşarlı")
+  // This comes AFTER tost so "Yarım Ekmek Kaşarlı Tost" hits tost first
+  {
+    keywords: ["yarım ekmek", "tam ekmek", "ekmek arası"],
+    hint: "Turkish somun bread sliced open and filled, served on a simple plate as in a Turkish büfe — honest presentation, no garnish",
+  },
+  // ── Dürüm ──
+  {
+    keywords: ["dürüm", "lavaş"],
+    hint: "döner meat tightly wrapped in thin Turkish lavaş flatbread, sliced slightly to show the filling, on a simple plate with a wedge of lemon — classic Turkish dürüm, no garnish",
+  },
+  // ── Generic döner ──
+  {
+    keywords: ["döner"],
+    hint: "döner kebab meat served exactly as in Turkey — in bread or on a plate with simple tomato and onion alongside, no microgreens or artistic plating",
+  },
+  // ── Köfte ──
+  {
+    keywords: ["köfte", "köftesi"],
+    hint: "grilled flattened köfte patties on a simple oval plate alongside a mound of rice pilaf or bulgur, a few tomato and green pepper slices on the side — classic Turkish lokanta plate, no decoration",
+  },
+  // ── Izgara / grilled (word-boundary for short ones like "şiş") ──
+  {
+    keywords: ["izgara", "tavuk kanat", "tavuk but", "pirzola", "biftek", "şiş kebap", "şiş tavuk", "adana", "urfa"],
+    hint: "grilled meat on a simple oval plate with rice or bulgur pilaf and grilled tomato and green pepper alongside — exactly how it's plated in a Turkish restaurant, no fancy decoration",
+  },
+  // ── Soups ──
+  {
+    keywords: ["çorba", "soup", "mercimek", "işkembe", "kremalı", "tarhana", "ezogelin"],
+    hint: "soup in a simple ceramic bowl with steam rising gently, a small lemon wedge on the side, a pinch of dried mint or red pepper flakes on top — classic Turkish çorba service",
+  },
+  // ── Salads ──
+  {
+    keywords: ["salata", "çoban salata", "mevsim salata"],
+    hint: "fresh Turkish salad with diced tomato, cucumber, onion and parsley in a simple bowl, olive oil and lemon dressing — as served in Turkey, no fancy microgreens",
+  },
+  // ── Turkish desserts ──
+  {
+    keywords: ["baklava", "künefe", "sütlaç", "kazandibi", "revani", "helva", "lokum", "şekerpare"],
+    hint: "traditional Turkish dessert on a simple plate as served in a Turkish restaurant — no over-styled garnish, authentic portion",
+  },
+  {
+    keywords: ["dondurma"],
+    hint: "Turkish ice cream in a cone or cup, served simply as in a Turkish dondurma shop",
+  },
+  {
+    keywords: ["tatlı", "pasta", "kek", "brownie", "cheesecake", "tiramisu", "waffle"],
     hint: "dessert portion on a simple plate as served in a Turkish café, no excessive garnish",
   },
-  // Drinks
+  // ── Specific drinks (word-boundary matching handles short keywords) ──
   {
     keywords: ["ayran"],
-    hint: "frothy cold ayran in a tall glass or traditional copper cup, simple presentation",
-  },
-  {
-    keywords: ["çay"],
-    hint: "Turkish tea in a classic tulip-shaped glass on a small saucer with two sugar cubes — iconic Turkish tea glass",
+    hint: "frothy cold ayran in a tall glass or traditional copper cup, simple presentation as served in Turkey",
   },
   {
     keywords: ["türk kahvesi", "türk kahve"],
-    hint: "small Turkish coffee cup (fincan) on a saucer with a glass of water and a small Turkish delight on the side — classic Turkish coffee service",
+    hint: "small Turkish coffee cup (fincan) on a saucer, a small glass of water alongside and a piece of Turkish delight — classic Turkish coffee service",
   },
   {
-    keywords: ["içecek", "drink", "kokteyl", "cocktail", "kahve", "coffee", "şarap", "bira", "limonata"],
-    hint: "in an appropriate glass, simple presentation as served in a Turkish restaurant",
+    keywords: ["çay"],
+    hint: "Turkish tea in a classic tulip-shaped çay bardağı glass on a small saucer with two sugar cubes — the iconic Turkish tea glass, nothing else",
   },
-  // Salads
+  // ── Water — word-boundary required so "su" ≠ "susam" ──
   {
-    keywords: ["salata", "çoban", "mevsim"],
-    hint: "fresh Turkish salad with diced tomato, cucumber, onion, parsley, olive oil and lemon — simple plate as served in Turkey, no fancy microgreens",
+    keywords: ["su"],
+    hint: "a simple glass of water on a plain surface — clear water in a tall glass, nothing else, minimalist",
   },
-  // Burgers / sandwiches
+  // ── Generic drinks ──
   {
-    keywords: ["burger", "sandviç", "sandwich", "tost"],
-    hint: "sandwich or burger as served in a Turkish büfe or fast food spot — generous filling, simple plate",
+    keywords: ["limonata", "şalgam", "şerbet", "meyve suyu"],
+    hint: "cold drink in an appropriate glass, simple presentation as served in a Turkish restaurant",
   },
-  // Pizza
   {
-    keywords: ["pizza"],
-    hint: "pizza as served in Turkey, full top-down or slight angle view showing toppings",
+    keywords: ["kahve", "coffee", "espresso", "latte", "cappuccino", "americano"],
+    hint: "coffee in an appropriate cup, simple presentation as served in a Turkish café",
+  },
+  {
+    keywords: ["çay", "bira", "şarap", "kokteyl", "cocktail", "içecek", "drink"],
+    hint: "drink in an appropriate glass, simple presentation as served in a Turkish restaurant",
   },
 ];
+
+/* Word-boundary-aware keyword matcher.
+ * For keywords ≤4 chars we require the match to be surrounded by
+ * non-alphanumeric / non-Turkish-letter characters (or start/end of string)
+ * to prevent false substring matches (e.g. "su" matching "susam"). */
+const TR_ALPHA = "a-zğüşıöçA-ZĞÜŞİÖÇ";
+function kwMatches(text: string, kw: string): boolean {
+  if (kw.length <= 4) {
+    const re = new RegExp(`(?<![${TR_ALPHA}0-9])${kw}(?![${TR_ALPHA}0-9])`);
+    return re.test(text);
+  }
+  return text.includes(kw);
+}
 
 function buildImagePrompt(productName: string, style: ImageStyle, category?: string, notes?: string): string {
   const s = STYLE_DEFS[style];
@@ -151,7 +198,7 @@ function buildImagePrompt(productName: string, style: ImageStyle, category?: str
   // Default: served simply as in a Turkish restaurant — no fancy styling
   let plating = "served simply on a plate exactly as it would be in an authentic Turkish restaurant, no microgreens, no sauce dots, no artistic food styling";
   for (const { keywords, hint } of PLATING_HINTS) {
-    if (keywords.some((kw) => combined.includes(kw))) { plating = hint; break; }
+    if (keywords.some((kw) => kwMatches(combined, kw))) { plating = hint; break; }
   }
 
   return [
