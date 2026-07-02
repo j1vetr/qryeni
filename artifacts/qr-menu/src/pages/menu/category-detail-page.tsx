@@ -83,30 +83,7 @@ export default function CategoryDetailPage() {
           <span style={{ color: accent }}>{category.name}</span>
         </div>
 
-        <h1 className="text-3xl font-bold text-white tracking-tight mb-1">{category.name}</h1>
-        {category.description && (
-          <p className="text-sm text-white/50 mb-4">{category.description}</p>
-        )}
-
-        {/* Filter chips */}
-        {filters.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-4 scrollbar-hide">
-            {filters.map((f) => (
-              <button
-                key={f}
-                onClick={() => setActiveFilter(f)}
-                className="flex-shrink-0 px-4 py-1.5 rounded-full text-xs font-medium border transition-all"
-                style={
-                  activeFilter === f
-                    ? { background: accent, color: "#0A0A0A", borderColor: accent }
-                    : { color: "rgba(255,255,255,0.5)", borderColor: "rgba(255,255,255,0.1)" }
-                }
-              >
-                {f === "all" ? tr.all : f.charAt(0).toUpperCase() + f.slice(1)}
-              </button>
-            ))}
-          </div>
-        )}
+        <h1 className="text-3xl font-bold text-white tracking-tight mb-4">{category.name}</h1>
 
         {/* Product list */}
         {filtered.length === 0 && (

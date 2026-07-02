@@ -94,19 +94,23 @@ export default function ProductDetailPage() {
 
         {/* Energy cards */}
         {(kcal || kj) && (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             {kcal && (
-              <div className="bg-[#141414] rounded-2xl p-4 border border-white/8 flex flex-col gap-2">
-                <span className="text-2xl leading-none">🔥</span>
-                <div className="text-2xl font-bold text-white leading-none mt-1">{kcal}</div>
-                <div className="text-[11px] text-white/35 tracking-widest">kcal · {tr.calories}</div>
+              <div className="bg-[#141414] rounded-xl px-3 py-2.5 border border-white/8 flex items-center gap-2.5">
+                <span className="text-xl flex-shrink-0 leading-none">🔥</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-white/35 tracking-widest uppercase leading-none mb-1.5">kcal · {tr.calories}</div>
+                  <div className="text-xl font-bold text-white leading-none text-center">{kcal}</div>
+                </div>
               </div>
             )}
             {kj && (
-              <div className="bg-[#141414] rounded-2xl p-4 border border-white/8 flex flex-col gap-2">
-                <span className="text-2xl leading-none">⚡</span>
-                <div className="text-2xl font-bold text-white leading-none mt-1">{kj}</div>
-                <div className="text-[11px] text-white/35 tracking-widest">kJ · {tr.energy}</div>
+              <div className="bg-[#141414] rounded-xl px-3 py-2.5 border border-white/8 flex items-center gap-2.5">
+                <span className="text-xl flex-shrink-0 leading-none">⚡</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[10px] text-white/35 tracking-widest uppercase leading-none mb-1.5">kJ · {tr.energy}</div>
+                  <div className="text-xl font-bold text-white leading-none text-center">{kj}</div>
+                </div>
               </div>
             )}
           </div>
