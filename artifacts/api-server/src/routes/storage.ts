@@ -1,8 +1,11 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import express, { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { lookup as dnsLookup } from "dns/promises";
 import { isIPv4, isIPv6 } from "net";
 import sharp from "sharp";
+import path from "path";
+import fs from "fs/promises";
+import { randomUUID } from "crypto";
 import {
   RequestUploadUrlBody,
   RequestUploadUrlResponse,
@@ -10,6 +13,13 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission, getObjectAclPolicy } from "../lib/objectAcl";
 import { requireAuth } from "../lib/auth";
+import {
+  uploadsDir,
+  ensureUploadsDir,
+  saveLocalFile,
+  localFileExists,
+  isReplitEnv,
+} from "../lib/localFileStorage";
 
 /**
  * SSRF guard: resolve hostname and reject private/loopback/link-local addresses.
@@ -87,9 +97,26 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
     return;
   }
 
-  try {
-    const { name, size, contentType } = parsed.data;
+  const { name, size, contentType } = parsed.data;
 
+  // Local storage fallback (non-Replit environments)
+  if (!isReplitEnv()) {
+    try {
+      await ensureUploadsDir();
+      const uuid = randomUUID();
+      const proto = req.protocol;
+      const host = req.get("host") ?? "localhost";
+      const uploadURL = `${proto}://${host}/api/storage/local-upload/${uuid}`;
+      const objectPath = `/local/${uuid}`;
+      res.json(RequestUploadUrlResponse.parse({ uploadURL, objectPath, metadata: { name, size, contentType } }));
+    } catch (error) {
+      req.log.error({ err: error }, "Error generating local upload URL");
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+    return;
+  }
+
+  try {
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
@@ -122,13 +149,28 @@ router.post("/storage/uploads/confirm", requireAuth, async (req: Request, res: R
     return;
   }
 
+  // Local storage fallback
+  if (objectPath.startsWith("/local/")) {
+    const uuid = objectPath.slice("/local/".length);
+    if (!uuid || uuid.includes("..") || uuid.includes("/")) {
+      res.status(400).json({ error: "Invalid objectPath" });
+      return;
+    }
+    const exists = await localFileExists(uuid);
+    if (!exists) {
+      res.status(404).json({ error: "Uploaded file not found" });
+      return;
+    }
+    res.json({ servingUrl: `/api/storage/local/${uuid}`, objectPath });
+    return;
+  }
+
   try {
     const normalizedPath = await objectStorageService.trySetObjectEntityAclPolicy(objectPath, {
       owner: String(req.session.userId),
       visibility: "public",
     });
 
-    // Derive the serving URL: /api/storage/objects/{path without /objects/ prefix}
     const servingPath = normalizedPath.startsWith("/objects/")
       ? `/api/storage/objects/${normalizedPath.slice("/objects/".length)}`
       : `/api/storage/objects/${normalizedPath}`;
@@ -137,6 +179,49 @@ router.post("/storage/uploads/confirm", requireAuth, async (req: Request, res: R
   } catch (error) {
     req.log.error({ err: error }, "Error confirming upload");
     res.status(500).json({ error: "Failed to confirm upload" });
+  }
+});
+
+/**
+ * PUT /storage/local-upload/:uuid
+ * Receives raw binary file from client and saves to disk (non-Replit environments).
+ */
+router.put(
+  "/storage/local-upload/:uuid",
+  requireAuth,
+  express.raw({ type: "*/*", limit: "20mb" }),
+  async (req: Request, res: Response) => {
+    const { uuid } = req.params;
+    if (!uuid || uuid.includes("..") || uuid.includes("/")) {
+      res.status(400).json({ error: "Invalid UUID" });
+      return;
+    }
+    try {
+      await saveLocalFile(uuid, req.body as Buffer);
+      res.json({ ok: true });
+    } catch (error) {
+      req.log.error({ err: error }, "Error saving local file");
+      res.status(500).json({ error: "Failed to save file" });
+    }
+  }
+);
+
+/**
+ * GET /storage/local/:uuid
+ * Serves a locally stored file.
+ */
+router.get("/storage/local/:uuid", async (req: Request, res: Response) => {
+  const { uuid } = req.params;
+  if (!uuid || uuid.includes("..") || uuid.includes("/")) {
+    res.status(400).json({ error: "Invalid UUID" });
+    return;
+  }
+  const filePath = path.join(uploadsDir, uuid);
+  try {
+    await fs.access(filePath);
+    res.sendFile(filePath);
+  } catch {
+    res.status(404).json({ error: "File not found" });
   }
 });
 
@@ -205,7 +290,15 @@ router.post("/storage/optimize-image", requireAuth, async (req: Request, res: Re
       return;
     }
 
-    // Fix 3: Verify the PUT upload actually succeeded before returning a serving URL
+    // Local storage fallback (non-Replit environments)
+    if (!isReplitEnv()) {
+      const uuid = randomUUID();
+      await saveLocalFile(uuid, outputBuffer);
+      res.json({ servingUrl: `/api/storage/local/${uuid}`, size: outputBuffer.length });
+      return;
+    }
+
+    // Replit: upload to GCS via signed URL
     const uploadURL  = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
