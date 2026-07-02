@@ -49,35 +49,122 @@ const STYLE_DEFS: Record<ImageStyle, StyleDef> = {
   },
 };
 
-/* Category-specific plating hints (style-agnostic, blended in) */
+/* ─── Turkish food serving hints ─────────────────────────────────
+ * Each entry matches product/category keywords and tells the model
+ * exactly how the dish is ACTUALLY served in Turkish restaurants.
+ * More specific entries must come first (longest-match wins).
+ * ──────────────────────────────────────────────────────────────── */
 const PLATING_HINTS: { keywords: string[]; hint: string }[] = [
-  { keywords: ["çorba", "soup", "mercimek", "domates", "kremalı"], hint: "served in a deep bowl, steam rising gently, herb garnish on top" },
-  { keywords: ["tatlı", "dessert", "pasta", "kek", "brownie", "cheesecake", "dondurma", "baklava", "tiramisu"], hint: "small elegant portion, garnished with berry or caramel accent" },
-  { keywords: ["içecek", "drink", "kokteyl", "cocktail", "kahve", "coffee", "çay", "ayran", "şarap", "bira"], hint: "in an appropriate glass or cup, garnish of citrus or fresh herb on rim" },
-  { keywords: ["salata", "salad", "yeşillik", "roka", "marul"], hint: "colorful fresh vegetables, vibrant greens, light olive oil drizzle" },
-  { keywords: ["pizza", "pide", "lahmacun"], hint: "full view showing toppings, fresh basil, slight cheese pull visible" },
-  { keywords: ["burger", "sandviç", "sandwich", "wrap"], hint: "cross-section or slight tilt to show all layers" },
+  // Ekmek döner variants — must show real Turkish somun bread
+  {
+    keywords: ["yarım ekmek", "tam ekmek", "ekmek döner", "ekmek arası döner"],
+    hint: "half a crusty white Turkish somun bread sliced open, generously filled with shaved döner meat (beef or chicken), a few slices of fresh tomato and thin onion rings inside, wrapped loosely in paper on a simple plate — EXACTLY as served at a Turkish lokanta or dönerci, zero fancy styling",
+  },
+  // Dürüm döner
+  {
+    keywords: ["dürüm", "lavaş"],
+    hint: "döner meat tightly wrapped in thin Turkish lavaş flatbread, sliced slightly to show the filling, on a simple plate with a wedge of lemon — classic Turkish dürüm presentation, no garnish",
+  },
+  // Generic döner (if no bread variant matched above)
+  {
+    keywords: ["döner"],
+    hint: "döner kebab meat in a simple plate or in bread as typically served in Turkey — sliced meat, simple tomato and onion alongside, no microgreens or artistic plating",
+  },
+  // Sosisli sandviç — long sausage, NOT cocktail/small sausages
+  {
+    keywords: ["sosisli", "sosis"],
+    hint: "one long hot dog sausage (NOT small cocktail sausages) inside a long bread roll, generous zigzag lines of ketchup and mayonnaise on top, served on a simple white plate — exactly like a Turkish sosisli sandviç from a büfe or snack bar",
+  },
+  // Köfte — on a plate with bulgur/rice
+  {
+    keywords: ["köfte", "köftesi"],
+    hint: "grilled flattened köfte patties on a simple plate alongside a mound of rice pilaf or bulgur, a few tomato and pepper slices on the side — classic Turkish lokanta plate, no decoration",
+  },
+  // Izgara / grilled meats
+  {
+    keywords: ["izgara", "kanat", "but", "pirzola", "biftek", "şiş"],
+    hint: "grilled meat on a simple oval plate with rice and grilled tomato/pepper alongside — exactly how it's served in a Turkish restaurant, no fancy plating",
+  },
+  // Pide — boat shaped, hot from oven
+  {
+    keywords: ["pide"],
+    hint: "boat-shaped Turkish pide fresh from the stone oven, golden-brown crust, filling visible on top, on a simple plate or parchment — traditional Turkish pide appearance",
+  },
+  // Lahmacun
+  {
+    keywords: ["lahmacun"],
+    hint: "thin round lahmacun flatbread with minced meat topping, on a simple plate, optionally rolled with parsley and lemon — exactly as served in a Turkish restaurant",
+  },
+  // Soups
+  {
+    keywords: ["çorba", "soup", "mercimek", "domates", "kremalı", "işkembe"],
+    hint: "soup in a simple ceramic bowl with steam rising, small lemon wedge on the side, a pinch of dried mint or red pepper on top — classic Turkish çorba service",
+  },
+  // Desserts
+  {
+    keywords: ["tatlı", "baklava", "künefe", "sütlaç", "kazandibi", "revani", "helva", "dondurma"],
+    hint: "traditional Turkish dessert portion as served in a Turkish restaurant — simple plate, no over-styled garnish",
+  },
+  // Generic desserts / cafe items
+  {
+    keywords: ["pasta", "kek", "brownie", "cheesecake", "tiramisu", "waffle"],
+    hint: "dessert portion on a simple plate as served in a Turkish café, no excessive garnish",
+  },
+  // Drinks
+  {
+    keywords: ["ayran"],
+    hint: "frothy cold ayran in a tall glass or traditional copper cup, simple presentation",
+  },
+  {
+    keywords: ["çay"],
+    hint: "Turkish tea in a classic tulip-shaped glass on a small saucer with two sugar cubes — iconic Turkish tea glass",
+  },
+  {
+    keywords: ["türk kahvesi", "türk kahve"],
+    hint: "small Turkish coffee cup (fincan) on a saucer with a glass of water and a small Turkish delight on the side — classic Turkish coffee service",
+  },
+  {
+    keywords: ["içecek", "drink", "kokteyl", "cocktail", "kahve", "coffee", "şarap", "bira", "limonata"],
+    hint: "in an appropriate glass, simple presentation as served in a Turkish restaurant",
+  },
+  // Salads
+  {
+    keywords: ["salata", "çoban", "mevsim"],
+    hint: "fresh Turkish salad with diced tomato, cucumber, onion, parsley, olive oil and lemon — simple plate as served in Turkey, no fancy microgreens",
+  },
+  // Burgers / sandwiches
+  {
+    keywords: ["burger", "sandviç", "sandwich", "tost"],
+    hint: "sandwich or burger as served in a Turkish büfe or fast food spot — generous filling, simple plate",
+  },
+  // Pizza
+  {
+    keywords: ["pizza"],
+    hint: "pizza as served in Turkey, full top-down or slight angle view showing toppings",
+  },
 ];
 
 function buildImagePrompt(productName: string, style: ImageStyle, category?: string, notes?: string): string {
   const s = STYLE_DEFS[style];
   const combined = `${productName} ${category ?? ""} ${notes ?? ""}`.toLowerCase();
 
-  let plating = "beautifully plated on the surface";
+  // Default: served simply as in a Turkish restaurant — no fancy styling
+  let plating = "served simply on a plate exactly as it would be in an authentic Turkish restaurant, no microgreens, no sauce dots, no artistic food styling";
   for (const { keywords, hint } of PLATING_HINTS) {
     if (keywords.some((kw) => combined.includes(kw))) { plating = hint; break; }
   }
 
   return [
-    `Food photo of "${productName}" for a restaurant menu`,
-    `Plating: ${plating}`,
+    `Authentic Turkish restaurant food photo of "${productName}"`,
+    `How it is served: ${plating}`,
     `Surface: ${s.surface}`,
     `Lighting: ${s.light}`,
-    `Mood: ${s.mood}`,
+    `Mood: ${s.mood} — this is REAL Turkish street food or lokanta food, NOT fine dining, zero food-styling tricks`,
     `Angle: ${s.angle}`,
-    "IMPORTANT: absolutely no text, no letters, no words, no labels, no numbers, no watermarks, no logos, no writing of any kind anywhere in the image",
+    "CRITICAL: No microgreens, no sauce dots, no edible flowers, no artistic garnishes — only what actually comes with this dish in Turkey",
+    "IMPORTANT: absolutely no text, no letters, no words, no labels, no numbers, no watermarks anywhere in the image",
     "No hands, food only",
-    "Realistic natural colors, appetizing presentation",
+    "Natural colors, appetizing and honest presentation",
   ].join(". ");
 }
 
@@ -171,8 +258,9 @@ router.post("/ai/generate", requireAuth, async (req, res): Promise<void> => {
   const targetLangs = languages?.length ? languages : ["tr", "en", "ru", "ar"];
   const langNames: Record<string, string> = { tr: "Turkish", en: "English", ru: "Russian", ar: "Arabic" };
 
-  const prompt = `You are a professional restaurant menu copywriter and nutritionist for an upscale Turkish restaurant.
-Generate complete menu content for the following dish:
+  const prompt = `You are a menu copywriter for an authentic everyday Turkish restaurant (lokanta/büfe/kebapçı). Your job is to write honest, appetizing descriptions that match how the dish ACTUALLY looks and tastes in Turkey — not fine dining language.
+
+Generate complete menu content for:
 Product: "${productName}"${category ? `\nCategory: "${category}"` : ""}
 
 Respond ONLY with a valid JSON object matching this exact shape:
@@ -189,8 +277,13 @@ Rules:
 - allergens: array using ONLY these exact Turkish lowercase names when applicable: gluten, süt, yumurta, balık, kabuklu, fındık, yer fıstığı, soya, kereviz, hardal, susam, lupin, yumuşakça, sülfitler
 - nutritionFacts: per serving — energy in kcal, protein/carbs/fat in grams (realistic for a restaurant portion)
 - calories: total kcal (same as nutritionFacts.energy)
-- translations[lang].name: dish name in that language, concise and appealing
-- translations[lang].description: sensory and appetizing description, max 60 words, start with uppercase
+- translations["tr"].name: keep the original Turkish name exactly as given — do NOT translate or modify it
+- translations["tr"].description: describe how it actually looks and tastes in Turkey, max 60 words, warm and appetizing tone, no fine-dining language
+- translations["en"].name: use the internationally recognised English name — examples: "Doner Kebab" (NOT "Meat Döner"), "Meatball Plate" (NOT "Köfte"), "Turkish Flatbread" for pide, "Lentil Soup" for mercimek çorbası; keep Turkish loanwords that are globally known (döner, kebab, baklava, ayran, lahmacun, börek)
+- translations["en"].description: describe it as British/American diners would expect — honest, no over-promising, max 60 words
+- translations["ru"].name: use the standard Russian name for Turkish food if one exists; otherwise transliterate naturally (e.g. Донер-кебаб, Кофте, Пиде)
+- translations["ar"].name: use the Arabic name commonly used in Arab countries for this dish if known; otherwise transliterate
+- All descriptions: max 60 words, start with uppercase, NO words like "artisanal", "gourmet", "exquisite", "decadent" — write for a real restaurant, not a food magazine
 - translations[lang].ingredients: comma-separated list of main ingredients in that language
 - translations[lang].allergenNote: allergen warning sentence in that language (empty string if no allergens)
 - Languages to generate: ${targetLangs.map((l) => `${l} (${langNames[l] ?? l})`).join(", ")}`;
