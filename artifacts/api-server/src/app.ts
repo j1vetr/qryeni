@@ -4,6 +4,7 @@ import pinoHttp from "pino-http";
 import session from "express-session";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import path from "path";
 
 declare module "express-session" {
   interface SessionData {
@@ -94,5 +95,14 @@ app.use(
 );
 
 app.use("/api", router);
+
+// Production: serve built frontend static files
+if (isProd) {
+  const staticDir = path.resolve(process.cwd(), "artifacts/qr-menu/dist/public");
+  app.use(express.static(staticDir));
+  app.use((_req, res) => {
+    res.sendFile(path.join(staticDir, "index.html"));
+  });
+}
 
 export default app;
