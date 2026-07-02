@@ -217,9 +217,37 @@ function BulkAddModal({
   const [phase, setPhase]       = useState<BulkPhase>("idle");
   const [aiProgress, setAiProg] = useState({ done: 0, total: 0 });
   const [svProgress, setSvProg] = useState({ done: 0, total: 0 });
+  const [pasteText,  setPasteText]  = useState("");
+  const [showImport, setShowImport] = useState(false);
 
   function updateRow(id: string, patch: Partial<BulkRow>) {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  }
+
+  /** Parse pasted text: "Ad,Fiyat,Kategori" (comma, semicolon or tab) per line */
+  function parsePaste() {
+    const lines = pasteText.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (!lines.length) return;
+    const parsed: BulkRow[] = lines.map((line) => {
+      const sep   = line.includes("\t") ? "\t" : line.includes(";") ? ";" : ",";
+      const parts = line.split(sep).map((p) => p.trim());
+      const name  = parts[0] ?? "";
+      const price = parts[1]?.replace(/[^0-9.]/g, "") ?? "";
+      const catRaw = (parts[2] ?? "").toLowerCase();
+      const matched = categories.find((c) =>
+        c.translations.some((t) => t.languageCode === "tr" && t.name.toLowerCase().includes(catRaw))
+      );
+      return { id: crypto.randomUUID(), name, price, categoryId: matched?.id ?? defaultCat, status: "idle" as const };
+    }).filter((r) => r.name);
+    if (!parsed.length) { toast({ title: "Geçerli satır bulunamadı", variant: "destructive" }); return; }
+    setRows((prev) => {
+      // Replace empty placeholder rows, then append parsed
+      const nonEmpty = prev.filter((r) => r.name.trim() || r.price.trim());
+      return [...nonEmpty, ...parsed];
+    });
+    setPasteText("");
+    setShowImport(false);
+    toast({ title: `${parsed.length} satır aktarıldı` });
   }
 
   const validRows = rows.filter((r) => r.name.trim() && parseFloat(r.price) > 0);
@@ -321,6 +349,45 @@ function BulkAddModal({
 
         {/* Table */}
         <div className="overflow-y-auto flex-1 px-6 py-4">
+
+          {/* ── Metin ile içe aktar ── */}
+          {!running && (
+            <div className="mb-4">
+              <button
+                onClick={() => setShowImport((v) => !v)}
+                className="flex items-center gap-1.5 text-xs text-neutral-500 hover:text-amber-400 transition-colors"
+              >
+                <span className="text-amber-600">↓</span>
+                {showImport ? "Metin aktarımını kapat" : "Metin ile içe aktar  (Ad,Fiyat,Kategori)"}
+              </button>
+
+              {showImport && (
+                <div className="mt-2 space-y-2">
+                  <textarea
+                    value={pasteText}
+                    onChange={(e) => setPasteText(e.target.value)}
+                    rows={5}
+                    placeholder={"Hamburger,250,Yiyecekler\nIzgara Tavuk,180,Ana Yemekler\nTiramisu,120,Tatlılar"}
+                    className="w-full bg-neutral-800 border border-neutral-700 text-white rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:border-amber-600 resize-none placeholder:text-neutral-600"
+                  />
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] text-neutral-600 flex-1">
+                      Her satır: <span className="text-neutral-400">Ad, Fiyat, Kategori</span> — virgül, noktalı virgül veya sekme ile ayrılabilir
+                    </p>
+                    <button
+                      onClick={parsePaste}
+                      disabled={!pasteText.trim()}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-30 transition-all"
+                      style={{ background: "#C9A84C22", border: "1px solid #C9A84C55", color: "#C9A84C" }}
+                    >
+                      Satırlara Aktar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-2">
             {/* Column headers */}
             <div className="grid grid-cols-[1fr_100px_140px_32px_32px] gap-2 text-[10px] text-neutral-500 uppercase tracking-widest px-1">
