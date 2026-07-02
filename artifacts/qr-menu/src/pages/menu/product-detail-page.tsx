@@ -99,7 +99,7 @@ export default function ProductDetailPage() {
               <div className="bg-[#141414] rounded-xl px-3 py-2.5 border border-white/8 flex items-center gap-2.5">
                 <span className="text-xl flex-shrink-0 leading-none">🔥</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[10px] text-white/35 tracking-widest uppercase leading-none mb-1.5">kcal · {tr.calories}</div>
+                  <div className="text-[10px] text-white/35 tracking-widest uppercase leading-none mb-1.5 text-center">kcal · {tr.calories}</div>
                   <div className="text-xl font-bold text-white leading-none text-center">{kcal}</div>
                 </div>
               </div>
@@ -108,7 +108,7 @@ export default function ProductDetailPage() {
               <div className="bg-[#141414] rounded-xl px-3 py-2.5 border border-white/8 flex items-center gap-2.5">
                 <span className="text-xl flex-shrink-0 leading-none">⚡</span>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[10px] text-white/35 tracking-widest uppercase leading-none mb-1.5">kJ · {tr.energy}</div>
+                  <div className="text-[10px] text-white/35 tracking-widest uppercase leading-none mb-1.5 text-center">kJ · {tr.energy}</div>
                   <div className="text-xl font-bold text-white leading-none text-center">{kj}</div>
                 </div>
               </div>
