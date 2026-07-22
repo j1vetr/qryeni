@@ -9,6 +9,7 @@ import analyticsRouter from "./analytics";
 import aiRouter from "./ai";
 import menuRouter from "./menu";
 import storageRouter from "./storage";
+import importRouter from "./import";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(analyticsRouter);
 router.use(aiRouter);
 router.use(menuRouter);
 router.use(storageRouter);
+router.use(importRouter);
 
 export default router;

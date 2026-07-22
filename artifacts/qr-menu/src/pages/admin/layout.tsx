@@ -10,6 +10,7 @@ import {
   QrCode,
   Menu,
   X,
+  Download,
 } from "lucide-react";
 
 interface AdminLayoutProps {
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: "/admin/categories", label: "Kategoriler", icon: FolderOpen },
   { href: "/admin/products", label: "Ürünler", icon: Package },
   { href: "/admin/settings", label: "Ayarlar", icon: Settings },
+  { href: "/admin/import", label: "İçe Aktar", icon: Download },
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {

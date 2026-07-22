@@ -8,6 +8,7 @@ import AdminDashboard from "@/pages/admin/dashboard";
 import AdminCategories from "@/pages/admin/categories";
 import AdminProducts from "@/pages/admin/products";
 import AdminSettings from "@/pages/admin/settings";
+import AdminImport from "@/pages/admin/import-page";
 import AdminLogin from "@/pages/admin/login";
 import { MenuProvider } from "@/contexts/menu-context";
 import HomePage from "@/pages/menu/home-page";
@@ -50,6 +51,14 @@ function Router() {
         {() => (
           <AdminLayout>
             <AdminSettings />
+          </AdminLayout>
+        )}
+      </Route>
+
+      <Route path="/admin/import">
+        {() => (
+          <AdminLayout>
+            <AdminImport />
           </AdminLayout>
         )}
       </Route>
