@@ -165,7 +165,7 @@ export default function HomePage() {
       <div className="mb-6 max-w-xl mx-auto">
         <div className="flex gap-3 overflow-x-auto px-4 scrollbar-hide pb-1">
           <button
-            onClick={() => setActiveSlug("all")}
+            onClick={() => navigate("/categories/all")}
             className="flex flex-col items-center gap-1.5 flex-shrink-0"
           >
             <div
