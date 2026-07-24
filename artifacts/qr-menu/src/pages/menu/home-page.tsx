@@ -169,7 +169,7 @@ export default function HomePage() {
             className="flex flex-col items-center gap-1.5 flex-shrink-0"
           >
             <div
-              className="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all"
+              className="w-[72px] h-[72px] rounded-full flex items-center justify-center text-4xl transition-all"
               style={{
                 background: activeSlug === "all" ? `${accent}22` : "rgba(255,255,255,0.05)",
                 border: activeSlug === "all" ? `2px solid ${accent}` : "2px solid transparent",
@@ -178,7 +178,7 @@ export default function HomePage() {
               🍽️
             </div>
             <span
-              className="text-[10px] font-medium"
+              className="text-xs font-medium"
               style={{ color: activeSlug === "all" ? accent : "rgba(255,255,255,0.5)" }}
             >
               {tr.all}
@@ -197,7 +197,7 @@ export default function HomePage() {
               className="flex flex-col items-center gap-1.5 flex-shrink-0"
             >
               <div
-                className="w-14 h-14 rounded-full flex items-center justify-center text-2xl transition-all"
+                className="w-[72px] h-[72px] rounded-full flex items-center justify-center text-4xl transition-all"
                 style={{
                   background: activeSlug === cat.slug ? `${accent}22` : "rgba(255,255,255,0.05)",
                   border: activeSlug === cat.slug ? `2px solid ${accent}` : "2px solid transparent",
@@ -206,7 +206,7 @@ export default function HomePage() {
                 {cat.emoji || getCategoryIcon(cat.slug)}
               </div>
               <span
-                className="text-[10px] font-medium text-center max-w-[56px] leading-tight"
+                className="text-xs font-medium text-center max-w-[72px] leading-tight"
                 style={{ color: activeSlug === cat.slug ? accent : "rgba(255,255,255,0.5)" }}
               >
                 {cat.name}
