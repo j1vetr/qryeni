@@ -44,8 +44,9 @@ export default function MenuHeader({ showBack }: MenuHeaderProps) {
               src={menu.restaurant.logoUrl}
               alt={menu.restaurant.name}
               style={{
-                maxWidth: `${menu.restaurant.logoWidth ?? 120}px`,
-                maxHeight: "48px",
+                width: `${menu.restaurant.logoWidth ?? 120}px`,
+                maxWidth: "100%",
+                height: "auto",
                 objectFit: "contain",
               }}
             />
